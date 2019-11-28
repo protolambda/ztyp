@@ -1,4 +1,6 @@
-package view
+package props
+
+import . "github.com/protolambda/ztyp/view"
 
 type ReadProp interface {
 	Read() (View, error)
