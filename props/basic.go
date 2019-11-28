@@ -8,16 +8,16 @@ import (
 
 type RootReadProp ReadPropFn
 
-func (p RootReadProp) Root() (*Root, error) {
+func (p RootReadProp) Root() (Root, error) {
 	v, err := p()
 	if err != nil {
-		return nil, err
+		return Root{}, err
 	}
 	r, ok := v.(*Root)
 	if ok {
-		return nil, fmt.Errorf("not a root view: %v", v)
+		return Root{}, fmt.Errorf("not a root view: %v", v)
 	}
-	return r, nil
+	return *r, nil
 }
 
 type RootWriteProp WritePropFn
@@ -45,7 +45,6 @@ type Uint64WriteProp WritePropFn
 func (p Uint64WriteProp) SetUint64(v Uint64View) error {
 	return p(v)
 }
-
 
 type BoolReadProp ReadPropFn
 
