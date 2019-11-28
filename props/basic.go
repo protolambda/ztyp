@@ -22,8 +22,8 @@ func (p RootReadProp) Root() (Root, error) {
 
 type RootWriteProp WritePropFn
 
-func (p RootWriteProp) SetRoot(v *Root) error {
-	return p(v)
+func (p RootWriteProp) SetRoot(v Root) error {
+	return p(&v)
 }
 
 type Uint64ReadProp ReadPropFn
