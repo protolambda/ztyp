@@ -1,12 +1,33 @@
 package view
 
-type ReadProp func() (View, error)
+type ReadProp interface {
+	Read() (View, error)
+}
 
-type WriteProp func(v View) error
+type ReadPropFn func() (View, error)
 
-type MutProp struct {
+func (f ReadPropFn) Read() (View, error) {
+	return f()
+}
+
+type WriteProp interface {
+	Write(v View) error
+}
+
+type WritePropFn func(v View) error
+
+func (f WritePropFn) Write(v View) error {
+	return f(v)
+}
+
+type MutProp interface {
 	ReadProp
 	WriteProp
+}
+
+type MutPropFns struct {
+	ReadPropFn
+	WritePropFn
 }
 
 type ReadablePropView interface {
@@ -22,21 +43,21 @@ type MutablePropView interface {
 	WritablePropView
 }
 
-func PropReader(rv ReadablePropView, i uint64) ReadProp {
+func PropReader(rv ReadablePropView, i uint64) ReadPropFn {
 	return func() (View, error) {
 		return rv.Get(i)
 	}
 }
 
-func PropWriter(wv WritablePropView, i uint64) WriteProp {
+func PropWriter(wv WritablePropView, i uint64) WritePropFn {
 	return func(v View) error {
 		return wv.Set(i, v)
 	}
 }
 
-func PropMutator(mv MutablePropView, i uint64) MutProp {
-	return MutProp{
-		ReadProp:  PropReader(mv, i),
-		WriteProp: PropWriter(mv, i),
+func PropMutator(mv MutablePropView, i uint64) MutPropFns {
+	return MutPropFns{
+		ReadPropFn:  PropReader(mv, i),
+		WritePropFn: PropWriter(mv, i),
 	}
 }
