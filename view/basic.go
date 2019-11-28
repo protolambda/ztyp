@@ -164,12 +164,12 @@ func (td BoolMeta) ByteLength() uint64 {
 	return 1
 }
 
-func (td BoolMeta) ViewFromBacking(node Node) View {
+func (td BoolMeta) ViewFromBacking(node Node) (View, error) {
 	v, ok := node.(*Root)
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("node %v must be a root to read a bool from it", node)
 	}
-	return BoolView(v[0] != 0)
+	return BoolView(v[0] != 0), nil
 }
 
 const BoolType BoolMeta = 0
