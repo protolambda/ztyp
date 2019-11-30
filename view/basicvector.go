@@ -88,43 +88,6 @@ func (tv *BasicVectorView) Get(i uint64) (SubView, error) {
 	}
 	return tv.ElementType.SubViewFromBacking(r, subIndex)
 }
-func (tv *BasicVectorView) copyChunk(i uint64, offset uint8, dest []byte) error {
-	v, err := tv.SubtreeView.Get(i)
-	if err != nil {
-		return err
-	}
-	r, ok := v.(*Root)
-	if !ok {
-		return fmt.Errorf("basic vector bottom node is not a root, at bottom node index %d", i)
-	}
-	copy(dest, r[offset:])
-	return nil
-}
-
-func (tv *BasicVectorView) IntoBytes(skip uint64, dest []byte) error {
-	startChunk, subStart := tv.TranslateIndex(skip)
-	// copy over partial first chunk
-	if subStart != 0 {
-		if err := tv.copyChunk(startChunk, subStart, dest[startChunk<<5+uint64(subStart):]); err != nil {
-			return err
-		}
-		startChunk += 1
-	}
-	endChunk, subEnd := tv.TranslateIndex(skip + uint64(len(dest)))
-	// copy over full chunks
-	for i := startChunk; i < endChunk; i++ {
-		if err := tv.copyChunk(i, 0, dest[i<<5:(i+1)<<5]); err != nil {
-			return err
-		}
-	}
-	// copy over partial last chunk
-	if subEnd != 0 {
-		if err := tv.copyChunk(endChunk, 0, dest[endChunk<<5:endChunk<<5+uint64(subEnd)]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func (tv *BasicVectorView) Set(i uint64, v SubView) error {
 	if i >= tv.Length {

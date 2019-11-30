@@ -49,6 +49,20 @@ func (p BasicVectorReadProp) BasicVector() (*BasicVectorView, error) {
 	return bv, nil
 }
 
+type BitVectorReadProp ReadPropFn
+
+func (p BitVectorReadProp) BitVector() (*BitVectorView, error) {
+	v, err := p()
+	if err != nil {
+		return nil, err
+	}
+	bv, ok := v.(*BitVectorView)
+	if ok {
+		return nil, fmt.Errorf("view is not a bitvector: %v", v)
+	}
+	return bv, nil
+}
+
 type ListReadProp ReadPropFn
 
 func (p ListReadProp) List() (*ListView, error) {
@@ -61,4 +75,18 @@ func (p ListReadProp) List() (*ListView, error) {
 		return nil, fmt.Errorf("view is not a list: %v", v)
 	}
 	return c, nil
+}
+
+type BitListReadProp ReadPropFn
+
+func (p BitListReadProp) BitList() (*BitListView, error) {
+	v, err := p()
+	if err != nil {
+		return nil, err
+	}
+	bv, ok := v.(*BitListView)
+	if ok {
+		return nil, fmt.Errorf("view is not a bitlist: %v", v)
+	}
+	return bv, nil
 }

@@ -90,3 +90,25 @@ func (tv *BitVectorView) Set(i uint64, v BoolView) error {
 	}
 	return tv.PropagateChange(tv)
 }
+
+// Shifts the bitvector contents to the right, clipping off the overflow. Only supported for small BitVectors.
+func (tv *BitVectorView) ShRight(sh uint8) error {
+	if tv.BitLength > 8 {
+		return fmt.Errorf("shifting large bitvectors is unsupported")
+	}
+	v, err := tv.SubtreeView.Get(0)
+	if err != nil {
+		return err
+	}
+	r, ok := v.(*Root)
+	if !ok {
+		return fmt.Errorf("bitvector bottom node is not a root, cannot perform bitshift")
+	}
+	newRoot := *r
+	// Mask to clip off bits.
+	newRoot[0] = (newRoot[0] << sh) & ((1 << tv.BitLength) - 1)
+	if err := tv.SubtreeView.Set(0, &newRoot); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
+}
