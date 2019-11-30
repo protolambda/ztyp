@@ -17,7 +17,7 @@ func (td *BasicVectorTypeDef) DefaultNode() Node {
 	return inner
 }
 
-func (td *BasicVectorTypeDef) ViewFromBacking(node Node) (View, error) {
+func (td *BasicVectorTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 	depth := GetDepth(td.BottomNodeLength())
 	return &BasicVectorView{
 		SubtreeView: SubtreeView{
@@ -25,6 +25,7 @@ func (td *BasicVectorTypeDef) ViewFromBacking(node Node) (View, error) {
 			depth:       depth,
 		},
 		BasicVectorTypeDef: td,
+		ViewHook: hook,
 	}, nil
 }
 
@@ -42,8 +43,8 @@ func (td *BasicVectorTypeDef) TranslateIndex(index uint64) (nodeIndex uint64, in
 	return index / perNode, uint8(index & (perNode - 1))
 }
 
-func (td *BasicVectorTypeDef) New() *BasicVectorView {
-	v, _ := td.ViewFromBacking(td.DefaultNode())
+func (td *BasicVectorTypeDef) New(hook ViewHook) *BasicVectorView {
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*BasicVectorView)
 }
 
@@ -57,6 +58,7 @@ func BasicVectorType(elemType BasicTypeDef, length uint64) *BasicVectorTypeDef {
 type BasicVectorView struct {
 	SubtreeView
 	*BasicVectorTypeDef
+	ViewHook
 }
 
 func (tv *BasicVectorView) ViewRoot(h HashFn) Root {
@@ -84,7 +86,7 @@ func (tv *BasicVectorView) Get(i uint64) (SubView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return tv.ElementType.SubViewFromBacking(r, subIndex), nil
+	return tv.ElementType.SubViewFromBacking(r, subIndex)
 }
 func (tv *BasicVectorView) copyChunk(i uint64, offset uint8, dest []byte) error {
 	v, err := tv.SubtreeView.Get(i)
@@ -132,5 +134,8 @@ func (tv *BasicVectorView) Set(i uint64, v SubView) error {
 	if err != nil {
 		return err
 	}
-	return tv.SubtreeView.Set(bottomIndex, v.BackingFromBase(r, subIndex))
+	if err := tv.SubtreeView.Set(bottomIndex, v.BackingFromBase(r, subIndex)); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
 }

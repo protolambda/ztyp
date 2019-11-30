@@ -40,11 +40,6 @@ type WritablePropView interface {
 	Set(i uint64, v View) error
 }
 
-type MutablePropView interface {
-	ReadablePropView
-	WritablePropView
-}
-
 func PropReader(rv ReadablePropView, i uint64) ReadPropFn {
 	return func() (View, error) {
 		return rv.Get(i)
@@ -54,12 +49,5 @@ func PropReader(rv ReadablePropView, i uint64) ReadPropFn {
 func PropWriter(wv WritablePropView, i uint64) WritePropFn {
 	return func(v View) error {
 		return wv.Set(i, v)
-	}
-}
-
-func PropMutator(mv MutablePropView, i uint64) MutPropFns {
-	return MutPropFns{
-		ReadPropFn:  PropReader(mv, i),
-		WritePropFn: PropWriter(mv, i),
 	}
 }

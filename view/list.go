@@ -16,7 +16,7 @@ func (td *ListTypeDef) DefaultNode() Node {
 	return &Commit{Left: &ZeroHashes[depth], Right: &ZeroHashes[0]}
 }
 
-func (td *ListTypeDef) ViewFromBacking(node Node) (View, error) {
+func (td *ListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 	depth := GetDepth(td.Limit)
 	return &ListView{
 		SubtreeView: SubtreeView{
@@ -24,11 +24,12 @@ func (td *ListTypeDef) ViewFromBacking(node Node) (View, error) {
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		ListTypeDef: td,
+		ViewHook: hook,
 	}, nil
 }
 
-func (td *ListTypeDef) New() *ListView {
-	v, _ := td.ViewFromBacking(td.DefaultNode())
+func (td *ListTypeDef) New(hook ViewHook) *ListView {
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*ListView)
 }
 
@@ -42,13 +43,14 @@ func ListType(elemType TypeDef, limit uint64) *ListTypeDef {
 type ListView struct {
 	SubtreeView
 	*ListTypeDef
+	ViewHook
 }
 
 func (tv *ListView) ViewRoot(h HashFn) Root {
 	return tv.BackingNode.MerkleRoot(h)
 }
 
-func (tv *ListView) Append(v Node) error {
+func (tv *ListView) Append(v View) error {
 	ll, err := tv.Length()
 	if err != nil {
 		return err
@@ -59,11 +61,11 @@ func (tv *ListView) Append(v Node) error {
 	// Appending is done by setting the node at the index list_length. And expanding where necessary as it is being set.
 	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(ll, tv.depth)
 	if err != nil {
-		return fmt.Errorf("failed to get a setter to append an item")
+		return fmt.Errorf("failed to get a setter to append an item: %v", err)
 	}
 	// Append the item by setting the newly allocated last item to it.
 	// Update the view to the new tree containing this item.
-	tv.BackingNode = setLast(v)
+	tv.BackingNode = setLast(v.Backing())
 	// And update the list length
 	setLength, err := tv.SubtreeView.BackingNode.Setter(1, 1)
 	if err != nil {
@@ -72,7 +74,7 @@ func (tv *ListView) Append(v Node) error {
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll+1)
 	tv.BackingNode = setLength(newLength)
-	return nil
+	return tv.PropagateChange(tv)
 }
 
 func (tv *ListView) Pop() error {
@@ -86,7 +88,7 @@ func (tv *ListView) Pop() error {
 	// Popping is done by setting the node at the index list_length - 1. And expanding where necessary as it is being set.
 	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(ll-1, tv.depth)
 	if err != nil {
-		return fmt.Errorf("failed to get a setter to pop an item")
+		return fmt.Errorf("failed to get a setter to pop an item: %v", err)
 	}
 	// Pop the item by setting it to the zero hash
 	// Update the view to the new tree containing this item.
@@ -99,7 +101,7 @@ func (tv *ListView) Pop() error {
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll-1)
 	tv.BackingNode = setLength(newLength)
-	return nil
+	return tv.PropagateChange(tv)
 }
 
 func (tv *ListView) CheckIndex(i uint64) error {
@@ -116,18 +118,31 @@ func (tv *ListView) CheckIndex(i uint64) error {
 	return nil
 }
 
-func (tv *ListView) Get(i uint64) (Node, error) {
+func (tv *ListView) Get(i uint64) (View, error) {
 	if err := tv.CheckIndex(i); err != nil {
 		return nil, err
 	}
-	return tv.SubtreeView.Get(i)
+	v, err := tv.SubtreeView.Get(i)
+	if err != nil {
+		return nil, err
+	}
+	return tv.ListTypeDef.ElementType.ViewFromBacking(v, tv.ItemHook(i))
 }
 
-func (tv *ListView) Set(i uint64, node Node) error {
+func (tv *ListView) Set(i uint64, v View) error {
 	if err := tv.CheckIndex(i); err != nil {
 		return err
 	}
-	return tv.SubtreeView.Set(i, node)
+	if err := tv.SubtreeView.Set(i, v.Backing()); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
+}
+
+func (tv *ListView) ItemHook(i uint64) ViewHook {
+	return func(v View) error {
+		return tv.Set(i, v)
+	}
 }
 
 func (tv *ListView) Length() (uint64, error) {

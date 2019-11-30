@@ -19,7 +19,7 @@ func (td *VectorTypeDef) DefaultNode() Node {
 	return inner
 }
 
-func (td *VectorTypeDef) ViewFromBacking(node Node) (View, error) {
+func (td *VectorTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 	depth := GetDepth(td.Length)
 	return &VectorView{
 		SubtreeView: SubtreeView{
@@ -27,11 +27,12 @@ func (td *VectorTypeDef) ViewFromBacking(node Node) (View, error) {
 			depth:       depth,
 		},
 		VectorTypeDef: td,
+		ViewHook: hook,
 	}, nil
 }
 
-func (td *VectorTypeDef) New() *VectorView {
-	v, _ := td.ViewFromBacking(td.DefaultNode())
+func (td *VectorTypeDef) New(hook ViewHook) *VectorView {
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*VectorView)
 }
 
@@ -45,6 +46,7 @@ func VectorType(elemType TypeDef, length uint64) *VectorTypeDef {
 type VectorView struct {
 	SubtreeView
 	*VectorTypeDef
+	ViewHook
 }
 
 func (tv *VectorView) ViewRoot(h HashFn) Root {
@@ -59,12 +61,21 @@ func (tv *VectorView) Get(i uint64) (View, error) {
 	if err != nil {
 		return nil, err
 	}
-	return tv.VectorTypeDef.ElementType.ViewFromBacking(v)
+	return tv.VectorTypeDef.ElementType.ViewFromBacking(v, tv.ItemHook(i))
 }
 
 func (tv *VectorView) Set(i uint64, v View) error {
 	if i >= tv.VectorTypeDef.Length {
 		return fmt.Errorf("cannot set item at element index %d, vector only has %d elements", i, tv.VectorTypeDef.Length)
 	}
-	return tv.SubtreeView.Set(i, v.Backing())
+	if err := tv.SubtreeView.Set(i, v.Backing()); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
+}
+
+func (tv *VectorView) ItemHook(i uint64) ViewHook {
+	return func(v View) error {
+		return tv.Set(i, v)
+	}
 }

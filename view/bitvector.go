@@ -16,7 +16,7 @@ func (td *BitVectorTypeDef) DefaultNode() Node {
 	return inner
 }
 
-func (td *BitVectorTypeDef) ViewFromBacking(node Node) (View, error) {
+func (td *BitVectorTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 	depth := GetDepth(td.BottomNodeLength())
 	return &BitVectorView{
 		SubtreeView: SubtreeView{
@@ -24,6 +24,7 @@ func (td *BitVectorTypeDef) ViewFromBacking(node Node) (View, error) {
 			depth:       depth,
 		},
 		BitVectorTypeDef: td,
+		ViewHook: hook,
 	}, nil
 }
 
@@ -31,8 +32,8 @@ func (td *BitVectorTypeDef) BottomNodeLength() uint64 {
 	return (td.BitLength + 0xff) >> 8
 }
 
-func (td *BitVectorTypeDef) New() *BitVectorView {
-	v, _ := td.ViewFromBacking(td.DefaultNode())
+func (td *BitVectorTypeDef) New(hook ViewHook) *BitVectorView {
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*BitVectorView)
 }
 
@@ -45,6 +46,7 @@ func BitvectorType(length uint64) *BitVectorTypeDef {
 type BitVectorView struct {
 	SubtreeView
 	*BitVectorTypeDef
+	ViewHook
 }
 
 func (tv *BitVectorView) ViewRoot(h HashFn) Root {
@@ -83,5 +85,8 @@ func (tv *BitVectorView) Set(i uint64, v BoolView) error {
 	if err != nil {
 		return err
 	}
-	return tv.SubtreeView.Set(bottomIndex, v.BackingFromBitfieldBase(r, subIndex))
+	if err := tv.SubtreeView.Set(bottomIndex, v.BackingFromBitfieldBase(r, subIndex)); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
 }

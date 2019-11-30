@@ -31,7 +31,7 @@ func (r *Root) ExpandInto(target uint64, depth uint8) (Link, error) {
 		Left:  &ZeroHashes[depth-1],
 		Right: &ZeroHashes[depth-1],
 	}
-	return startC.ExpandInto(target, depth-1)
+	return startC.ExpandInto(target, depth)
 }
 
 func (r *Root) MerkleRoot(h HashFn) Root {

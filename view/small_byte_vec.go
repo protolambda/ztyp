@@ -12,7 +12,7 @@ func (td SmallByteVecMeta) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
-func (td SmallByteVecMeta) ViewFromBacking(node Node) (View, error) {
+func (td SmallByteVecMeta) ViewFromBacking(node Node, _ ViewHook) (View, error) {
 	r, ok := node.(*Root)
 	if !ok {
 		return nil, fmt.Errorf("backing must be a root")

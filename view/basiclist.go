@@ -16,7 +16,7 @@ func (td *BasicListTypeDef) DefaultNode() Node {
 	return &Commit{Left: &ZeroHashes[depth], Right: &ZeroHashes[0]}
 }
 
-func (td *BasicListTypeDef) ViewFromBacking(node Node) (View, error) {
+func (td *BasicListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 	depth := GetDepth(td.BottomNodeLimit())
 	return &BasicListView{
 		SubtreeView: SubtreeView{
@@ -24,6 +24,7 @@ func (td *BasicListTypeDef) ViewFromBacking(node Node) (View, error) {
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		BasicListTypeDef: td,
+		ViewHook: hook,
 	}, nil
 }
 
@@ -41,8 +42,8 @@ func (td *BasicListTypeDef) TranslateIndex(index uint64) (nodeIndex uint64, intr
 	return index / perNode, uint8(index & (perNode - 1))
 }
 
-func (td *BasicListTypeDef) New() *BasicListView {
-	v, _ := td.ViewFromBacking(td.DefaultNode())
+func (td *BasicListTypeDef) New(hook ViewHook) *BasicListView {
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*BasicListView)
 }
 
@@ -56,6 +57,7 @@ func BasicListType(elemType BasicTypeDef, limit uint64) *BasicListTypeDef {
 type BasicListView struct {
 	SubtreeView
 	*BasicListTypeDef
+	ViewHook
 }
 
 func (tv *BasicListView) ViewRoot(h HashFn) Root {
@@ -95,7 +97,7 @@ func (tv *BasicListView) Append(view SubView) error {
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll+1)
 	tv.BackingNode = setLength(newLength)
-	return nil
+	return tv.PropagateChange(tv)
 }
 
 func (tv *BasicListView) Pop() error {
@@ -132,7 +134,7 @@ func (tv *BasicListView) Pop() error {
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll-1)
 	tv.BackingNode = setLength(newLength)
-	return nil
+	return tv.PropagateChange(tv)
 }
 
 func (tv *BasicListView) CheckIndex(i uint64) error {
@@ -181,7 +183,10 @@ func (tv *BasicListView) Set(i uint64, v SubView) error {
 	if err != nil {
 		return err
 	}
-	return tv.SubtreeView.Set(bottomIndex, v.BackingFromBase(r, subIndex))
+	if err := tv.SubtreeView.Set(bottomIndex, v.BackingFromBase(r, subIndex)); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
 }
 
 func (tv *BasicListView) Length() (uint64, error) {

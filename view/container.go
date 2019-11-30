@@ -24,7 +24,7 @@ func (td *ContainerType) DefaultNode() Node {
 	return inner
 }
 
-func (td *ContainerType) ViewFromBacking(node Node) (View, error) {
+func (td *ContainerType) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 	fieldCount := td.FieldCount()
 	depth := GetDepth(fieldCount)
 	return &ContainerView{
@@ -33,11 +33,12 @@ func (td *ContainerType) ViewFromBacking(node Node) (View, error) {
 			depth:       depth,
 		},
 		ContainerType: td,
+		ViewHook: hook,
 	}, nil
 }
 
-func (td *ContainerType) New() *ContainerView {
-	v, _ := td.ViewFromBacking(td.DefaultNode())
+func (td *ContainerType) New(hook ViewHook) *ContainerView {
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*ContainerView)
 }
 
@@ -48,6 +49,7 @@ func (td *ContainerType) FieldCount() uint64 {
 type ContainerView struct {
 	SubtreeView
 	*ContainerType
+	ViewHook
 }
 
 func (tv *ContainerView) ViewRoot(h HashFn) Root {
@@ -62,12 +64,21 @@ func (tv *ContainerView) Get(i uint64) (View, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*tv.ContainerType)[i].Type.ViewFromBacking(v)
+	return (*tv.ContainerType)[i].Type.ViewFromBacking(v, tv.ItemHook(i))
 }
 
 func (tv *ContainerView) Set(i uint64, v View) error {
 	if fieldCount := tv.ContainerType.FieldCount(); i >= fieldCount {
 		return fmt.Errorf("cannot set item at field index %d, container only has %d fields", i, fieldCount)
 	}
-	return tv.SubtreeView.Set(i, v.Backing())
+	if err := tv.SubtreeView.Set(i, v.Backing()); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
+}
+
+func (tv *ContainerView) ItemHook(i uint64) ViewHook {
+	return func(v View) error {
+		return tv.Set(i, v)
+	}
 }

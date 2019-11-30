@@ -15,7 +15,7 @@ func (td *BitListTypeDef) DefaultNode() Node {
 	return &Commit{Left: &ZeroHashes[depth], Right: &ZeroHashes[0]}
 }
 
-func (td *BitListTypeDef) ViewFromBacking(node Node) (View, error) {
+func (td *BitListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 	depth := GetDepth(td.BottomNodeLimit())
 	return &BitListView{
 		SubtreeView: SubtreeView{
@@ -23,6 +23,7 @@ func (td *BitListTypeDef) ViewFromBacking(node Node) (View, error) {
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		BitListTypeDef: td,
+		ViewHook: hook,
 	}, nil
 }
 
@@ -30,8 +31,8 @@ func (td *BitListTypeDef) BottomNodeLimit() uint64 {
 	return (td.BitLimit + 0xff) >> 8
 }
 
-func (td *BitListTypeDef) New() *BitListView {
-	v, _ := td.ViewFromBacking(td.DefaultNode())
+func (td *BitListTypeDef) New(hook ViewHook) *BitListView {
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*BitListView)
 }
 
@@ -44,6 +45,7 @@ func BitlistType(limit uint64) *BitListTypeDef {
 type BitListView struct {
 	SubtreeView
 	*BitListTypeDef
+	ViewHook
 }
 
 func (tv *BitListView) ViewRoot(h HashFn) Root {
@@ -82,7 +84,7 @@ func (tv *BitListView) Append(view BoolView) error {
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll+1)
 	tv.BackingNode = setLength(newLength)
-	return nil
+	return tv.PropagateChange(tv)
 }
 
 func (tv *BitListView) Pop() error {
@@ -114,7 +116,7 @@ func (tv *BitListView) Pop() error {
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll-1)
 	tv.BackingNode = setLength(newLength)
-	return nil
+	return tv.PropagateChange(tv)
 }
 
 func (tv *BitListView) CheckIndex(i uint64) error {
@@ -163,7 +165,10 @@ func (tv *BitListView) Set(i uint64, v BoolView) error {
 	if err != nil {
 		return err
 	}
-	return tv.SubtreeView.Set(bottomIndex, v.BackingFromBitfieldBase(r, subIndex))
+	if err := tv.SubtreeView.Set(bottomIndex, v.BackingFromBitfieldBase(r, subIndex)); err != nil {
+		return err
+	}
+	return tv.PropagateChange(tv)
 }
 
 func (tv *BitListView) Length() (uint64, error) {

@@ -11,7 +11,7 @@ func (RootMeta) DefaultNode() tree.Node {
 	return &tree.ZeroHashes[0]
 }
 
-func (RootMeta) ViewFromBacking(node tree.Node) (View, error) {
+func (RootMeta) ViewFromBacking(node tree.Node, _ ViewHook) (View, error) {
 	root, ok := node.(*tree.Root)
 	if !ok {
 		return nil, fmt.Errorf("node is not a root: %v", node)

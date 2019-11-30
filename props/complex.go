@@ -5,6 +5,8 @@ import (
 	. "github.com/protolambda/ztyp/view"
 )
 
+// This file is why we need generics in Go. Could have been ~10 lines.
+
 type ContainerReadProp ReadPropFn
 
 func (p ContainerReadProp) Container() (*ContainerView, error) {
@@ -19,10 +21,18 @@ func (p ContainerReadProp) Container() (*ContainerView, error) {
 	return c, nil
 }
 
-type ContainerWriteProp WritePropFn
+type VectorReadProp ReadPropFn
 
-func (p ContainerWriteProp) SetContainer(v *ContainerView) error {
-	return p(v)
+func (p VectorReadProp) Vector() (*VectorView, error) {
+	v, err := p()
+	if err != nil {
+		return nil, err
+	}
+	c, ok := v.(*VectorView)
+	if ok {
+		return nil, fmt.Errorf("view is not a vector: %v", v)
+	}
+	return c, nil
 }
 
 type BasicVectorReadProp ReadPropFn
@@ -34,8 +44,21 @@ func (p BasicVectorReadProp) BasicVector() (*BasicVectorView, error) {
 	}
 	bv, ok := v.(*BasicVectorView)
 	if ok {
-		return nil, fmt.Errorf("not a uint64 view: %v", v)
+		return nil, fmt.Errorf("view is not a basic vector: %v", v)
 	}
 	return bv, nil
 }
 
+type ListReadProp ReadPropFn
+
+func (p ListReadProp) List() (*ListView, error) {
+	v, err := p()
+	if err != nil {
+		return nil, err
+	}
+	c, ok := v.(*ListView)
+	if ok {
+		return nil, fmt.Errorf("view is not a list: %v", v)
+	}
+	return c, nil
+}

@@ -6,9 +6,19 @@ type View interface {
 	Backing() Node
 }
 
+type ViewHook func(v View) error
+
+func (vh ViewHook) PropagateChange(v View) error {
+	if vh != nil {
+		return vh(v)
+	} else {
+		return nil
+	}
+}
+
 type TypeDef interface {
 	DefaultNode() Node
-	ViewFromBacking(node Node) (View, error)
+	ViewFromBacking(node Node, hook ViewHook) (View, error)
 }
 
 type SubView interface {

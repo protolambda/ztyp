@@ -17,7 +17,7 @@ func (td UintMeta) ByteLength() uint64 {
 	return uint64(td)
 }
 
-func (td UintMeta) ViewFromBacking(node Node) (View, error) {
+func (td UintMeta) ViewFromBacking(node Node, _ ViewHook) (View, error) {
 	v, ok := node.(*Root)
 	if !ok {
 		return nil, fmt.Errorf("node %v must be a root to read a uint%d from it", node, td)
@@ -164,7 +164,7 @@ func (td BoolMeta) ByteLength() uint64 {
 	return 1
 }
 
-func (td BoolMeta) ViewFromBacking(node Node) (View, error) {
+func (td BoolMeta) ViewFromBacking(node Node, _ ViewHook) (View, error) {
 	v, ok := node.(*Root)
 	if !ok {
 		return nil, fmt.Errorf("node %v must be a root to read a bool from it", node)
