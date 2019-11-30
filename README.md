@@ -32,6 +32,8 @@ Construction:
     - Take a typed view that has getters/setters, create closure to fix it to a property index
     - Type the property function and add a receiver func to return the typed view instead.
     - Type `ReadPropFn` and `WritePropFn` with your own function types to not repeat the boilerplate.
+- `ViewHook`s enable you to create smaller views attached to their parent views.
+   Program like you are mutating references, and have the view-hook propagate up the changes.
 - The backing tree can be partial, and summarised/expanded dynamically. The typedefinition will safely handle a tree,
    and return an error when the expected data for an operation is inconsistent or missing.
 - The hash-function for hash-tree-root is:
