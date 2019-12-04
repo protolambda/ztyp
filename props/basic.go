@@ -28,7 +28,7 @@ func (p RootWriteProp) SetRoot(v Root) error {
 
 type Uint64ReadProp ReadPropFn
 
-func (p Uint64ReadProp) Uint64() (Uint64View, error) {
+func (p Uint64ReadProp) Uint64() (uint64, error) {
 	v, err := p()
 	if err != nil {
 		return 0, err
@@ -37,18 +37,18 @@ func (p Uint64ReadProp) Uint64() (Uint64View, error) {
 	if ok {
 		return 0, fmt.Errorf("not a uint64 view: %v", v)
 	}
-	return n, nil
+	return uint64(n), nil
 }
 
 type Uint64WriteProp WritePropFn
 
-func (p Uint64WriteProp) SetUint64(v Uint64View) error {
-	return p(v)
+func (p Uint64WriteProp) SetUint64(v uint64) error {
+	return p(Uint64View(v))
 }
 
 type BoolReadProp ReadPropFn
 
-func (p BoolReadProp) Bool() (BoolView, error) {
+func (p BoolReadProp) Bool() (bool, error) {
 	v, err := p()
 	if err != nil {
 		return false, err
@@ -57,7 +57,7 @@ func (p BoolReadProp) Bool() (BoolView, error) {
 	if ok {
 		return false, fmt.Errorf("not a bool view: %v", v)
 	}
-	return b, nil
+	return bool(b), nil
 }
 
 type BoolWriteProp WritePropFn

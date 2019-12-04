@@ -1,127 +1,116 @@
 package tree
 
 import (
+	"errors"
 	"fmt"
 )
 
 // An immutable (L, R) pair with a link to the holding node.
 // If L or R changes, the link is used to bind a new (L, *R) or (*L, R) pair in the holding value.
 type Commit struct {
-	// TODO: instead of value + bool, it could also be a pointer (nil case == computed false).
-	//  But more objects/indirection/allocations.
 	Value    Root
-	computed bool // true if Value is set to H(L, R)
 	Left     Node
 	Right    Node
 }
 
+func NewCommit(a Node, b Node) *Commit {
+	return &Commit{Left:  a, Right: b}
+}
+
 func (c *Commit) MerkleRoot(h HashFn) Root {
-	if c.computed {
+	if c.Value != (Root{}) {
 		return c.Value
 	}
 	if c.Left == nil || c.Right == nil {
 		panic("invalid state, cannot have left without right")
 	}
 	c.Value = h(c.Left.MerkleRoot(h), c.Right.MerkleRoot(h))
-	c.computed = true
 	return c.Value
 }
 
 func (c *Commit) RebindLeft(v Node) Node {
-	return &Commit{
-		Value:    Root{},
-		computed: false,
-		Left:     v,
-		Right:    c.Right,
-	}
+	return NewCommit(v, c.Right)
 }
 
 func (c *Commit) RebindRight(v Node) Node {
-	return &Commit{
-		Value:    Root{},
-		computed: false,
-		Left:     c.Left,
-		Right:    v,
-	}
+	return NewCommit(c.Left, v)
 }
 
-func (c *Commit) Expand() Node {
-	next := &Commit{
-		Value:    Root{},
-		computed: false,
-		Left:     nil,
-		Right:    nil,
+func SubtreeFillToDepth(bottom Node, depth uint8) Node {
+	node := bottom
+	for i := uint64(0); i < uint64(depth); i++ {
+		node = NewCommit(node, node)
 	}
-	left := &Commit{
-		Value:    Root{},
-		computed: false,
-		Left:     nil,
-		Right:    nil,
-	}
-	right := &Commit{
-		Value:    Root{},
-		computed: false,
-		Left:     nil,
-		Right:    nil,
-	}
-	next.Left = left
-	next.Right = right
-	return next
+	return node
 }
 
-// Unsafe! Modifies L and R, without triggering a rebind in the parent.
-// Fills the subtree with the given bottom-node, without actually duplicating any storage.
-// Similar to zero-hashes: L == R == H(L1, L2) == H(R1, R2)
-func (c *Commit) ExpandInplaceDepth(bottom Node, depth uint8) {
-	c.computed = false
-	if depth == 0 {
-		panic("invalid usage")
+func SubtreeFillToLength(bottom Node, depth uint8, length uint64) (Node, error) {
+	anchor := uint64(1) << depth
+	if length > anchor {
+		return nil, errors.New("too many nodes")
+	}
+	if length == anchor {
+		return SubtreeFillToDepth(bottom, depth), nil
 	}
 	if depth == 1 {
-		c.Left = bottom
-		c.Right = bottom
+		if length > 1 {
+			return NewCommit(bottom, bottom), nil
+		} else {
+			return NewCommit(bottom, &ZeroHashes[0]), nil
+		}
+	}
+	pivot := anchor >> 1
+	if length <= pivot {
+		left, err := SubtreeFillToLength(bottom, depth-1, length)
+		if err != nil {
+			return nil, err
+		}
+		return NewCommit(left, &ZeroHashes[0]), nil
 	} else {
-		step := &Commit{}
-		step.ExpandInplaceDepth(bottom, depth-1)
-		c.Left = step
-		c.Right = step
+		left := SubtreeFillToDepth(bottom, depth-1)
+		right, err := SubtreeFillToLength(bottom, depth-1, length - pivot)
+		if err != nil {
+			return nil, err
+		}
+		return NewCommit(left, right), nil
 	}
 }
 
-// Unsafe! Modifies L and R, without triggering a rebind in the parent
-func (c *Commit) ExpandInplaceTo(nodes []Node, depth uint8) {
-	c.computed = false
+func SubtreeFillToContents(nodes []Node, depth uint8) (Node, error) {
+	if len(nodes) == 0 {
+		return nil, errors.New("no nodes to fill subtree with")
+	}
+	anchor := uint64(1) << depth
+	if uint64(len(nodes)) > anchor {
+		return nil, errors.New("too many nodes")
+	}
 	if depth == 0 {
-		panic("invalid usage")
+		return nodes[0], nil
 	}
 	if depth == 1 {
-		c.Left = nodes[0]
 		if len(nodes) > 1 {
-			c.Right = nodes[1]
+			return NewCommit(nodes[0], nodes[1]), nil
 		} else {
-			c.Right = &ZeroHashes[0]
+			return NewCommit(nodes[0], &ZeroHashes[0]), nil
 		}
+	}
+	pivot := anchor >> 1
+	if uint64(len(nodes)) <= pivot {
+		left, err := SubtreeFillToContents(nodes, depth-1)
+		if err != nil {
+			return nil, err
+		}
+		return NewCommit(left, &ZeroHashes[0]), nil
 	} else {
-		pivot := uint64(1) << (depth - 1)
-		c.Left = &Commit{
-			Value:    Root{},
-			computed: false,
-			Left:     nil,
-			Right:    nil,
+		left, err := SubtreeFillToContents(nodes[:pivot], depth-1)
+		if err != nil {
+			return nil, err
 		}
-		if uint64(len(nodes)) <= pivot {
-			c.Left.(*Commit).ExpandInplaceTo(nodes, depth-1)
-			c.Right = &ZeroHashes[depth]
-		} else {
-			c.Left.(*Commit).ExpandInplaceTo(nodes[:pivot], depth-1)
-			c.Right = &Commit{
-				Value:    Root{},
-				computed: false,
-				Left:     nil,
-				Right:    nil,
-			}
-			c.Right.(*Commit).ExpandInplaceTo(nodes[pivot:], depth-1)
+		right, err := SubtreeFillToContents(nodes[pivot:], depth-1)
+		if err != nil {
+			return nil, err
 		}
+		return NewCommit(left, right), nil
 	}
 }
 
