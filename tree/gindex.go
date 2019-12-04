@@ -13,6 +13,12 @@ type Gindex interface {
 	Right() Gindex
 	// Parent gindex
 	Parent() Gindex
+	// If the gindex points into the left subtree (2nd bit is 0)
+	IsLeft() bool
+	// If the gindex is the root (= 1)
+	IsRoot() bool
+	// If gindex is 2 or 3
+	IsClose() bool
 	// Get the depth of the gindex
 	Depth() uint64
 }
@@ -40,6 +46,19 @@ func (v Gindex64) Right() Gindex {
 
 func (v Gindex64) Parent() Gindex {
 	return v >> 1
+}
+
+func (v Gindex64) IsLeft() bool {
+	pivot := Gindex64(1 << GetDepth(uint64(v))) >> 1
+	return v & pivot == 0
+}
+
+func (v Gindex64) IsRoot() bool {
+	return v == 1
+}
+
+func (v Gindex64) IsClose() bool {
+	return v <= 3
 }
 
 func (v Gindex64) Depth() uint64 {

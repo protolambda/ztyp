@@ -17,8 +17,8 @@ func Compose(inner Link, outer Link) Link {
 
 // Node of a binary merkle tree
 type Node interface {
-	Getter(target uint64, depth uint8) (Node, error)
-	Setter(target uint64, depth uint8) (Link, error)
-	ExpandInto(target uint64, depth uint8) (Link, error)
+	Getter(target Gindex) (Node, error)
+	Setter(target Gindex) (Link, error)
+	ExpandInto(target Gindex) (Link, error)
 	MerkleRoot(h HashFn) Root
 }

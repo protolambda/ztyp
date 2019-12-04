@@ -114,65 +114,55 @@ func SubtreeFillToContents(nodes []Node, depth uint8) (Node, error) {
 	}
 }
 
-func (c *Commit) Getter(target uint64, depth uint8) (Node, error) {
-	if depth == 0 {
-		if target != 0 {
-			return nil, fmt.Errorf("root depth 0 only has a single node at target 0, cannot Get %d", target)
-		}
+func (c *Commit) Getter(target Gindex) (Node, error) {
+	if target.IsRoot() {
 		return c, nil
 	}
-	if depth == 1 {
-		if target == 0 {
+	if target.IsClose() {
+		if target.IsLeft() {
 			return c.Left, nil
-		}
-		if target == 1 {
+		} else {
 			return c.Right, nil
 		}
-		return nil, fmt.Errorf("depth 1 only has two nodes at target 0 and 1, cannot Get %d", target)
 	}
-	if pivot := uint64(1) << (depth - 1); target < pivot {
+	if target.IsLeft() {
 		if c.Left == nil {
-			return nil, fmt.Errorf("cannot find node at target %v in depth %v: no left node", target, depth)
+			return nil, fmt.Errorf("cannot find node at target %v: no left node", target)
 		}
-		return c.Left.Getter(target, depth-1)
+		return c.Left.Getter(target.Subtree())
 	} else {
 		if c.Right == nil {
-			return nil, fmt.Errorf("cannot find node at target %v in depth %v: no right node", target, depth)
+			return nil, fmt.Errorf("cannot find node at target %v: no right node", target)
 		}
-		return c.Right.Getter(target&^pivot, depth-1)
+		return c.Right.Getter(target.Subtree())
 	}
 }
 
-func (c *Commit) ExpandInto(target uint64, depth uint8) (Link, error) {
-	if depth == 0 {
-		if target != 0 {
-			return nil, fmt.Errorf("root depth 0 only has a single node at target 0, cannot ExpandInto %d", target)
-		}
+func (c *Commit) ExpandInto(target Gindex) (Link, error) {
+	if target.IsRoot() {
 		return Identity, nil
 	}
-	if depth == 1 {
-		if target == 0 {
+	if target.IsClose() {
+		if target.IsLeft() {
 			return c.RebindLeft, nil
-		}
-		if target == 1 {
+		} else {
 			return c.RebindRight, nil
 		}
-		return nil, fmt.Errorf("depth 1 only has two nodes at target 0 and 1, cannot ExpandInto %d", target)
 	}
-	if pivot := uint64(1) << (depth - 1); target < pivot {
+	if target.IsLeft() {
 		if c.Left == nil {
-			return nil, fmt.Errorf("cannot find node at target %v in depth %v: no left node", target, depth)
+			return nil, fmt.Errorf("cannot find node at target %v: no left node", target)
 		}
-		if inner, err := c.Left.ExpandInto(target, depth-1); err != nil {
+		if inner, err := c.Left.ExpandInto(target.Subtree()); err != nil {
 			return nil, err
 		} else {
 			return Compose(inner, c.RebindLeft), nil
 		}
 	} else {
 		if c.Right == nil {
-			return nil, fmt.Errorf("cannot find node at target %v in depth %v: no right node", target, depth)
+			return nil, fmt.Errorf("cannot find node at target %v: no right node", target)
 		}
-		if inner, err := c.Right.ExpandInto(target&^pivot, depth-1); err != nil {
+		if inner, err := c.Right.ExpandInto(target.Subtree()); err != nil {
 			return nil, err
 		} else {
 			return Compose(inner, c.RebindRight), nil
@@ -180,36 +170,31 @@ func (c *Commit) ExpandInto(target uint64, depth uint8) (Link, error) {
 	}
 }
 
-func (c *Commit) Setter(target uint64, depth uint8) (Link, error) {
-	if depth == 0 {
-		if target != 0 {
-			return nil, fmt.Errorf("root depth 0 only has a single node at target 0, cannot Set %d", target)
-		}
+func (c *Commit) Setter(target Gindex) (Link, error) {
+	if target.IsRoot() {
 		return Identity, nil
 	}
-	if depth == 1 {
-		if target == 0 {
+	if target.IsClose() {
+		if target.IsLeft() {
 			return c.RebindLeft, nil
-		}
-		if target == 1 {
+		} else {
 			return c.RebindRight, nil
 		}
-		return nil, fmt.Errorf("depth 1 only has two nodes at target 0 and 1, cannot Set %d", target)
 	}
-	if pivot := uint64(1) << (depth - 1); target < pivot {
+	if target.IsLeft() {
 		if c.Left == nil {
-			return nil, fmt.Errorf("cannot find node at target %v in depth %v: no left node", target, depth)
+			return nil, fmt.Errorf("cannot find node at target %v: no left node", target)
 		}
-		if inner, err := c.Left.Setter(target, depth-1); err != nil {
+		if inner, err := c.Left.Setter(target.Subtree()); err != nil {
 			return nil, err
 		} else {
 			return Compose(inner, c.RebindLeft), nil
 		}
 	} else {
 		if c.Right == nil {
-			return nil, fmt.Errorf("cannot find node at target %v in depth %v: no right node", target, depth)
+			return nil, fmt.Errorf("cannot find node at target %v: no right node", target)
 		}
-		if inner, err := c.Right.Setter(target&^pivot, depth-1); err != nil {
+		if inner, err := c.Right.Setter(target.Subtree()); err != nil {
 			return nil, err
 		} else {
 			return Compose(inner, c.RebindRight), nil

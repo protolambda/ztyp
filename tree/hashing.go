@@ -11,6 +11,25 @@ func sha256Combi(a Root, b Root) Root {
 	return sha256.Sum256(v[:])
 }
 
+func sha256CombiRepeat() HashFn {
+	hash := sha256.New()
+	hashFn := func(a Root, b Root) (out Root) {
+		hash.Reset()
+		v := [64]byte{}
+		copy(v[:32], a[:])
+		copy(v[32:], b[:])
+		hash.Write(v[:])
+		copy(out[:], hash.Sum(nil))
+		return
+	}
+	return hashFn
+}
+
+type NewHashFn func() HashFn
+
+// Get a hash-function that re-uses the hashing working-variables. Defaults to SHA-256.
+var GetHashFn NewHashFn = sha256CombiRepeat
+
 var Hash HashFn = sha256Combi
 
 var ZeroHashes []Root
