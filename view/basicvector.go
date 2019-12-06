@@ -12,9 +12,7 @@ type BasicVectorTypeDef struct {
 
 func (td *BasicVectorTypeDef) DefaultNode() Node {
 	depth := GetDepth(td.BottomNodeLength())
-	inner := &Commit{}
-	inner.ExpandInplaceDepth(&ZeroHashes[0], depth)
-	return inner
+	return SubtreeFillToDepth(&ZeroHashes[0], depth)
 }
 
 func (td *BasicVectorTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
@@ -25,7 +23,7 @@ func (td *BasicVectorTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, e
 			depth:       depth,
 		},
 		BasicVectorTypeDef: td,
-		ViewHook: hook,
+		ViewHook:           hook,
 	}, nil
 }
 

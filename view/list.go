@@ -24,7 +24,7 @@ func (td *ListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		ListTypeDef: td,
-		ViewHook: hook,
+		ViewHook:    hook,
 	}, nil
 }
 
@@ -59,7 +59,11 @@ func (tv *ListView) Append(v View) error {
 		return fmt.Errorf("list length is %d and appending would exceed the list limit %d", ll, tv.Limit)
 	}
 	// Appending is done by setting the node at the index list_length. And expanding where necessary as it is being set.
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(ll, tv.depth)
+	lastGindex, err := ToGindex64(ll, tv.depth)
+	if err != nil {
+		return err
+	}
+	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to append an item: %v", err)
 	}
@@ -67,7 +71,7 @@ func (tv *ListView) Append(v View) error {
 	// Update the view to the new tree containing this item.
 	tv.BackingNode = setLast(v.Backing())
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(1, 1)
+	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
 	if err != nil {
 		return err
 	}
@@ -86,7 +90,11 @@ func (tv *ListView) Pop() error {
 		return fmt.Errorf("list length is 0 and no item can be popped")
 	}
 	// Popping is done by setting the node at the index list_length - 1. And expanding where necessary as it is being set.
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(ll-1, tv.depth)
+	lastGindex, err := ToGindex64(ll, tv.depth)
+	if err != nil {
+		return err
+	}
+	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to pop an item: %v", err)
 	}
@@ -94,7 +102,7 @@ func (tv *ListView) Pop() error {
 	// Update the view to the new tree containing this item.
 	tv.BackingNode = setLast(&ZeroHashes[0])
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(1, 1)
+	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
 	if err != nil {
 		return err
 	}
@@ -146,7 +154,7 @@ func (tv *ListView) ItemHook(i uint64) ViewHook {
 }
 
 func (tv *ListView) Length() (uint64, error) {
-	v, err := tv.SubtreeView.BackingNode.Getter(1, 1)
+	v, err := tv.SubtreeView.BackingNode.Getter(RightGindex)
 	if err != nil {
 		return 0, err
 	}

@@ -23,7 +23,7 @@ func (td *BitListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		BitListTypeDef: td,
-		ViewHook: hook,
+		ViewHook:       hook,
 	}, nil
 }
 
@@ -61,7 +61,11 @@ func (tv *BitListView) Append(view BoolView) error {
 		return fmt.Errorf("list length is %d and appending would exceed the list limit %d", ll, tv.BitLimit)
 	}
 	// Appending is done by modifying the bottom node at the index list_length. And expanding where necessary as it is being set.
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(ll>>8, tv.depth)
+	lastGindex, err := ToGindex64(ll>>8, tv.depth)
+	if err != nil {
+		return err
+	}
+	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to append an item")
 	}
@@ -77,7 +81,7 @@ func (tv *BitListView) Append(view BoolView) error {
 		tv.BackingNode = setLast(view.BackingFromBitfieldBase(r, subIndex))
 	}
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(1, 1)
+	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
 	if err != nil {
 		return err
 	}
@@ -96,7 +100,11 @@ func (tv *BitListView) Pop() error {
 		return fmt.Errorf("list length is 0 and no bit can be popped")
 	}
 	// Popping is done by modifying the bottom node at the index list_length - 1. And expanding where necessary as it is being set.
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto((ll-1)>>8, tv.depth)
+	lastGindex, err := ToGindex64((ll-1)>>8, tv.depth)
+	if err != nil {
+		return err
+	}
+	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to pop a bit")
 	}
@@ -109,7 +117,7 @@ func (tv *BitListView) Pop() error {
 	// Update the view to the new tree containing this item.
 	tv.BackingNode = setLast(BoolView(false).BackingFromBitfieldBase(r, subIndex))
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(1, 1)
+	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
 	if err != nil {
 		return err
 	}
@@ -172,7 +180,7 @@ func (tv *BitListView) Set(i uint64, v BoolView) error {
 }
 
 func (tv *BitListView) Length() (uint64, error) {
-	v, err := tv.SubtreeView.BackingNode.Getter(1, 1)
+	v, err := tv.SubtreeView.BackingNode.Getter(RightGindex)
 	if err != nil {
 		return 0, err
 	}

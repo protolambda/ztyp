@@ -27,6 +27,10 @@ type Gindex interface {
 
 type Gindex64 uint64
 
+const RootGindex Gindex64 = 1
+const LeftGindex Gindex64 = 2
+const RightGindex Gindex64 = 3
+
 func (v Gindex64) Subtree() Gindex {
 	anchor := Gindex64(1 << GetDepth(uint64(v)))
 	return v ^ anchor | (anchor >> 1)
@@ -41,7 +45,7 @@ func (v Gindex64) Left() Gindex {
 }
 
 func (v Gindex64) Right() Gindex {
-	return v << 1 | 1
+	return v<<1 | 1
 }
 
 func (v Gindex64) Parent() Gindex {
@@ -49,8 +53,8 @@ func (v Gindex64) Parent() Gindex {
 }
 
 func (v Gindex64) IsLeft() bool {
-	pivot := Gindex64(1 << GetDepth(uint64(v))) >> 1
-	return v & pivot == 0
+	pivot := Gindex64(1<<GetDepth(uint64(v))) >> 1
+	return v&pivot == 0
 }
 
 func (v Gindex64) IsRoot() bool {

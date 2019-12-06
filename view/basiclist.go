@@ -24,7 +24,7 @@ func (td *BasicListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, err
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		BasicListTypeDef: td,
-		ViewHook: hook,
+		ViewHook:         hook,
 	}, nil
 }
 
@@ -74,7 +74,11 @@ func (tv *BasicListView) Append(view SubView) error {
 	}
 	perNode := tv.ElementsPerBottomNode()
 	// Appending is done by modifying the bottom node at the index list_length. And expanding where necessary as it is being set.
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(ll/perNode, tv.depth)
+	lastGindex, err := ToGindex64(ll/perNode, tv.depth)
+	if err != nil {
+		return err
+	}
+	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to append an item")
 	}
@@ -90,7 +94,7 @@ func (tv *BasicListView) Append(view SubView) error {
 		tv.BackingNode = setLast(view.BackingFromBase(r, subIndex))
 	}
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(1, 1)
+	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
 	if err != nil {
 		return err
 	}
@@ -110,7 +114,11 @@ func (tv *BasicListView) Pop() error {
 	}
 	perNode := tv.ElementsPerBottomNode()
 	// Popping is done by modifying the bottom node at the index list_length - 1. And expanding where necessary as it is being set.
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto((ll-1)/perNode, tv.depth)
+	lastGindex, err := ToGindex64((ll-1)/perNode, tv.depth)
+	if err != nil {
+		return err
+	}
+	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to pop an item")
 	}
@@ -127,7 +135,7 @@ func (tv *BasicListView) Pop() error {
 	}
 	tv.BackingNode = setLast(defaultElement.BackingFromBase(r, subIndex))
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(1, 1)
+	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
 	if err != nil {
 		return err
 	}
@@ -190,7 +198,7 @@ func (tv *BasicListView) Set(i uint64, v SubView) error {
 }
 
 func (tv *BasicListView) Length() (uint64, error) {
-	v, err := tv.SubtreeView.BackingNode.Getter(1, 1)
+	v, err := tv.SubtreeView.BackingNode.Getter(RightGindex)
 	if err != nil {
 		return 0, err
 	}

@@ -15,13 +15,13 @@ type ContainerType []FieldDef
 func (td *ContainerType) DefaultNode() Node {
 	fieldCount := td.FieldCount()
 	depth := GetDepth(fieldCount)
-	inner := &Commit{}
 	nodes := make([]Node, fieldCount, fieldCount)
 	for i, f := range *td {
 		nodes[i] = f.Type.DefaultNode()
 	}
-	inner.ExpandInplaceTo(nodes, depth)
-	return inner
+	// can ignore error, depth is derive from nodes count.
+	rootNode, _ := SubtreeFillToContents(nodes, depth)
+	return rootNode
 }
 
 func (td *ContainerType) ViewFromBacking(node Node, hook ViewHook) (View, error) {
@@ -33,7 +33,7 @@ func (td *ContainerType) ViewFromBacking(node Node, hook ViewHook) (View, error)
 			depth:       depth,
 		},
 		ContainerType: td,
-		ViewHook: hook,
+		ViewHook:      hook,
 	}, nil
 }
 

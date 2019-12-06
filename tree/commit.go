@@ -8,13 +8,13 @@ import (
 // An immutable (L, R) pair with a link to the holding node.
 // If L or R changes, the link is used to bind a new (L, *R) or (*L, R) pair in the holding value.
 type Commit struct {
-	Value    Root
-	Left     Node
-	Right    Node
+	Value Root
+	Left  Node
+	Right Node
 }
 
 func NewCommit(a Node, b Node) *Commit {
-	return &Commit{Left:  a, Right: b}
+	return &Commit{Left: a, Right: b}
 }
 
 func (c *Commit) MerkleRoot(h HashFn) Root {
@@ -68,7 +68,7 @@ func SubtreeFillToLength(bottom Node, depth uint8, length uint64) (Node, error) 
 		return NewCommit(left, &ZeroHashes[0]), nil
 	} else {
 		left := SubtreeFillToDepth(bottom, depth-1)
-		right, err := SubtreeFillToLength(bottom, depth-1, length - pivot)
+		right, err := SubtreeFillToLength(bottom, depth-1, length-pivot)
 		if err != nil {
 			return nil, err
 		}

@@ -11,11 +11,19 @@ type SubtreeView struct {
 }
 
 func (stv *SubtreeView) Get(i uint64) (Node, error) {
-	return stv.BackingNode.Getter(i, stv.depth)
+	g, err := ToGindex64(i, stv.depth)
+	if err != nil {
+		return nil, err
+	}
+	return stv.BackingNode.Getter(g)
 }
 
 func (stv *SubtreeView) Set(i uint64, node Node) error {
-	s, err := stv.BackingNode.Setter(i, stv.depth)
+	g, err := ToGindex64(i, stv.depth)
+	if err != nil {
+		return err
+	}
+	s, err := stv.BackingNode.Setter(g)
 	if err != nil {
 		return err
 	}
@@ -29,7 +37,7 @@ func (stv *SubtreeView) Backing() Node {
 
 // Copy over the roots at the bottom of the subtree from left to right into dest (until dest is full)
 func (stv *SubtreeView) IntoBytes(dest []byte) error {
-	copyChunk := func (i uint64, dest []byte) error {
+	copyChunk := func(i uint64, dest []byte) error {
 		v, err := stv.Get(i)
 		if err != nil {
 			return err
@@ -49,7 +57,7 @@ func (stv *SubtreeView) IntoBytes(dest []byte) error {
 		}
 	}
 	// copy over partial last chunk
-	if endChunk << 5 != uint64(len(dest)) {
+	if endChunk<<5 != uint64(len(dest)) {
 		if err := copyChunk(endChunk, dest[endChunk<<5:]); err != nil {
 			return err
 		}

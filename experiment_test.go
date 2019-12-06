@@ -11,7 +11,7 @@ var BLSPubkeyType = BasicVectorType(ByteType, 48)
 var ValidatorType = &ContainerType{
 	{"pubkey", BLSPubkeyType},
 	{"withdrawal_credentials", RootType}, // Commitment to pubkey for withdrawals
-	{"effective_balance", Uint64Type},         // Balance at stake
+	{"effective_balance", Uint64Type},    // Balance at stake
 	{"slashed", BoolType},
 	// Status epochs
 	{"activation_eligibility_epoch", Uint64Type}, // When criteria for activation were met
@@ -25,7 +25,6 @@ const VALIDATOR_REGISTRY_LIMIT uint64 = 1 << 40
 var RegistryBalancesType = BasicListType(Uint64Type, VALIDATOR_REGISTRY_LIMIT)
 
 var RegistryValidatorsType = ListType(ValidatorType, VALIDATOR_REGISTRY_LIMIT)
-
 
 func BenchmarkRegInitHash(t *testing.B) {
 	startCount := 100000
@@ -42,7 +41,6 @@ func BenchmarkRegInitHash(t *testing.B) {
 		t.Logf("length: %d %v", ll, err)
 	}
 }
-
 
 func BenchmarkRegHash(t *testing.B) {
 	startCount := 100000

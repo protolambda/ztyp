@@ -12,12 +12,11 @@ type VectorTypeDef struct {
 
 func (td *VectorTypeDef) DefaultNode() Node {
 	depth := GetDepth(td.Length)
-	inner := &Commit{}
-	// TODO: does not work for non power of 2 length
 	// The same node N times: the node is immutable, so re-use is safe.
 	defaultNode := td.ElementType.DefaultNode()
-	inner.ExpandInplaceDepth(defaultNode, depth)
-	return inner
+	// can ignore error, depth is derived from length.
+	rootNode, _ := SubtreeFillToLength(defaultNode, depth, td.Length)
+	return rootNode
 }
 
 func (td *VectorTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
@@ -28,7 +27,7 @@ func (td *VectorTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error)
 			depth:       depth,
 		},
 		VectorTypeDef: td,
-		ViewHook: hook,
+		ViewHook:      hook,
 	}, nil
 }
 
