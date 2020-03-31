@@ -6,7 +6,7 @@ import (
 )
 
 type SubtreeView struct {
-	BackingNode Node
+	BackedView
 	depth       uint8
 }
 
@@ -23,16 +23,15 @@ func (stv *SubtreeView) Set(i uint64, node Node) error {
 	if err != nil {
 		return err
 	}
-	s, err := stv.BackingNode.Setter(g)
+	s, err := stv.BackingNode.Setter(g, false)
 	if err != nil {
 		return err
 	}
-	stv.BackingNode = s(node)
-	return nil
-}
-
-func (stv *SubtreeView) Backing() Node {
-	return stv.BackingNode
+	newBacking, err := s(node)
+	if err != nil {
+		return err
+	}
+	return stv.SetBacking(newBacking)
 }
 
 // Copy over the roots at the bottom of the subtree from left to right into dest (until dest is full)
