@@ -23,12 +23,12 @@ func (p ContainerReadProp) Container() (*ContainerView, error) {
 
 type VectorReadProp ReadPropFn
 
-func (p VectorReadProp) Vector() (*VectorView, error) {
+func (p VectorReadProp) Vector() (*ComplexVectorView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err
 	}
-	c, ok := v.(*VectorView)
+	c, ok := v.(*ComplexVectorView)
 	if ok {
 		return nil, fmt.Errorf("view is not a vector: %v", v)
 	}
@@ -37,12 +37,12 @@ func (p VectorReadProp) Vector() (*VectorView, error) {
 
 type BasicVectorReadProp ReadPropFn
 
-func (p BasicVectorReadProp) BasicVector() (*BasicVectorView, error) {
+func (p BasicVectorReadProp) BasicVector() (*PackedVectorView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err
 	}
-	bv, ok := v.(*BasicVectorView)
+	bv, ok := v.(*PackedVectorView)
 	if ok {
 		return nil, fmt.Errorf("view is not a basic vector: %v", v)
 	}

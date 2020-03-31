@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-var BLSPubkeyType = BasicVectorType(ByteType, 48)
+var BLSPubkeyType = BasicVectorType("BLSPubkey", ByteType, 48)
 
-var ValidatorType = &ContainerType{
+var ValidatorType = ContainerType("Validator", []FieldDef{
 	{"pubkey", BLSPubkeyType},
 	{"withdrawal_credentials", RootType}, // Commitment to pubkey for withdrawals
 	{"effective_balance", Uint64Type},    // Balance at stake
@@ -18,7 +18,7 @@ var ValidatorType = &ContainerType{
 	{"activation_epoch", Uint64Type},
 	{"exit_epoch", Uint64Type},
 	{"withdrawable_epoch", Uint64Type}, // When validator can withdraw funds
-}
+})
 
 const VALIDATOR_REGISTRY_LIMIT uint64 = 1 << 40
 

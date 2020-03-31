@@ -12,16 +12,12 @@ type FieldDef struct {
 	Type TypeDef
 }
 
-type ContainerType struct {
-	TypeName string
-	MinSize uint64
-	MaxSize uint64
-	Size uint64
-	IsFixedSize bool
+type ContainerTypeDef struct {
+	ComplexTypeBase
 	Fields []FieldDef
 }
 
-func Container(name string, fields []FieldDef) *ContainerType {
+func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 	minSize := uint64(0)
 	maxSize := uint64(0)
 	size := uint64(0)
@@ -41,17 +37,19 @@ func Container(name string, fields []FieldDef) *ContainerType {
 	} else {
 		size = 0
 	}
-	return &ContainerType{
-		TypeName: name,
-		MinSize: minSize,
-		MaxSize: maxSize,
-		Size: size,
-		IsFixedSize: isFixedSize,
+	return &ContainerTypeDef{
+		ComplexTypeBase: ComplexTypeBase{
+			TypeName: name,
+			MinSize: minSize,
+			MaxSize: maxSize,
+			Size: size,
+			IsFixedSize: isFixedSize,
+		},
 		Fields: fields,
 	}
 }
 
-func (td *ContainerType) DefaultNode() Node {
+func (td *ContainerTypeDef) DefaultNode() Node {
 	fieldCount := td.FieldCount()
 	depth := CoverDepth(fieldCount)
 	nodes := make([]Node, fieldCount, fieldCount)
@@ -63,7 +61,7 @@ func (td *ContainerType) DefaultNode() Node {
 	return rootNode
 }
 
-func (td *ContainerType) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
 	fieldCount := td.FieldCount()
 	depth := CoverDepth(fieldCount)
 	return &ContainerView{
@@ -80,45 +78,25 @@ func (td *ContainerType) ViewFromBacking(node Node, hook BackingHook) (View, err
 	}, nil
 }
 
-func (td *ContainerType) Default(hook BackingHook) View {
+func (td *ContainerTypeDef) Default(hook BackingHook) View {
 	return td.New(hook)
 }
 
-func (td *ContainerType) New(hook BackingHook) *ContainerView {
+func (td *ContainerTypeDef) New(hook BackingHook) *ContainerView {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*ContainerView)
 }
 
-func (td *ContainerType) FieldCount() uint64 {
+func (td *ContainerTypeDef) FieldCount() uint64 {
 	return uint64(len(td.Fields))
 }
 
-func (td *ContainerType) IsFixedByteLength() bool {
-	return td.IsFixedSize
-}
-
-func (td *ContainerType) TypeByteLength() uint64 {
-	return td.Size
-}
-
-func (td *ContainerType) MinByteLength() uint64 {
-	return td.MinSize
-}
-
-func (td *ContainerType) MaxByteLength() uint64 {
-	return td.MaxSize
-}
-
-func (td *ContainerType) Deserialize(r io.Reader, scope uint64) error {
+func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) error {
 	// TODO
 	return nil
 }
 
-func (td *ContainerType) Name() string {
-	return td.TypeName
-}
-
-func (td *ContainerType) TypeRepr() string {
+func (td *ContainerTypeDef) String() string {
 	var buf bytes.Buffer
 	buf.WriteString(td.TypeName)
 	buf.WriteString("(Container):")
@@ -135,7 +113,7 @@ func (td *ContainerType) TypeRepr() string {
 
 type ContainerView struct {
 	SubtreeView
-	*ContainerType
+	*ContainerTypeDef
 }
 
 func (tv *ContainerView) Copy() (View, error) {
@@ -158,14 +136,14 @@ func (tv *ContainerView) Serialize(w io.Writer) error {
 }
 
 func (tv *ContainerView) Get(i uint64) (View, error) {
-	if count := tv.ContainerType.FieldCount(); i >= count {
+	if count := tv.ContainerTypeDef.FieldCount(); i >= count {
 		return nil, fmt.Errorf("cannot get item at field index %d, container only has %d fields", i, count)
 	}
-	v, err := tv.SubtreeView.Get(i)
+	v, err := tv.SubtreeView.GetNode(i)
 	if err != nil {
 		return nil, err
 	}
-	return tv.ContainerType.Fields[i].Type.ViewFromBacking(v, tv.ItemHook(i))
+	return tv.ContainerTypeDef.Fields[i].Type.ViewFromBacking(v, tv.ItemHook(i))
 }
 
 func (tv *ContainerView) Set(i uint64, v View) error {
@@ -173,13 +151,10 @@ func (tv *ContainerView) Set(i uint64, v View) error {
 }
 
 func (tv *ContainerView) setNode(i uint64, b Node) error {
-	if fieldCount := tv.ContainerType.FieldCount(); i >= fieldCount {
+	if fieldCount := tv.ContainerTypeDef.FieldCount(); i >= fieldCount {
 		return fmt.Errorf("cannot set item at field index %d, container only has %d fields", i, fieldCount)
 	}
-	if err := tv.SubtreeView.Set(i, b); err != nil {
-		return err
-	}
-	return tv.Hook.PropagateChangeMaybe(tv.Backing())
+	return tv.SubtreeView.SetNode(i, b)
 }
 
 func (tv *ContainerView) ItemHook(i uint64) BackingHook {
