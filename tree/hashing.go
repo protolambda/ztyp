@@ -1,6 +1,9 @@
 package tree
 
-import "crypto/sha256"
+import (
+	"crypto/sha256"
+	"fmt"
+)
 
 type HashFn func(a Root, b Root) Root
 
@@ -44,4 +47,11 @@ func InitZeroHashes(h HashFn, zeroHashesLevels uint) {
 
 func init() {
 	InitZeroHashes(sha256Combi, 64)
+}
+
+func ZeroNode(depth uint32) Node {
+	if depth >= uint32(len(ZeroHashes)) {
+		panic(fmt.Errorf("depth %d reaches deeper than available %d precomputed zero-hashes provide", depth, len(ZeroHashes)))
+	}
+	return &ZeroHashes[depth]
 }

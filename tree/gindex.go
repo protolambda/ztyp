@@ -20,7 +20,19 @@ type Gindex interface {
 	// If gindex is 2 or 3
 	IsClose() bool
 	// Get the depth of the gindex
-	Depth() uint64
+	Depth() uint32
+	// Iterate over the bits of the gindex
+	// The depth is excl. the "root" bit
+	BitIter() (iter BitIter, depth uint32)
+}
+
+type BitIter interface {
+	// Next: move forward through gindex.
+	// It returns bools for each bit after the "root" bit.
+	// If "ok" is false, the bit cannot be read, none are remaining.
+	// Subsequent calls are invalid.
+	// For these extra calls, "ok" will be false, and "right" is undefined.
+	Next() (right bool, ok bool)
 }
 
 // TODO: implement big int based gindex to automatically switch to whenever the uint64 is too small
@@ -32,12 +44,12 @@ const LeftGindex Gindex64 = 2
 const RightGindex Gindex64 = 3
 
 func (v Gindex64) Subtree() Gindex {
-	anchor := Gindex64(1 << GetDepth(uint64(v)))
+	anchor := Gindex64(1 << BitIndex(uint64(v)))
 	return v ^ anchor | (anchor >> 1)
 }
 
 func (v Gindex64) Anchor() Gindex {
-	return Gindex64(1 << GetDepth(uint64(v)))
+	return Gindex64(1 << BitIndex(uint64(v)))
 }
 
 func (v Gindex64) Left() Gindex {
@@ -53,7 +65,7 @@ func (v Gindex64) Parent() Gindex {
 }
 
 func (v Gindex64) IsLeft() bool {
-	pivot := Gindex64(1<<GetDepth(uint64(v))) >> 1
+	pivot := Gindex64(1<<BitIndex(uint64(v))) >> 1
 	return v&pivot == 0
 }
 
@@ -65,8 +77,16 @@ func (v Gindex64) IsClose() bool {
 	return v <= 3
 }
 
-func (v Gindex64) Depth() uint64 {
-	return uint64(GetDepth(uint64(v)))
+func (v Gindex64) Depth() uint32 {
+	return uint32(BitIndex(uint64(v)))
+}
+
+func (v Gindex64) BitIter() (iter BitIter, depth uint32) {
+	d := BitIndex(uint64(v))
+	return &Gindex64BitIter{
+		Marker: 1 << d,
+		Gindex: uint64(v),
+	}, uint32(d)
 }
 
 func ToGindex64(index uint64, depth uint8) (Gindex64, error) {
@@ -78,4 +98,14 @@ func ToGindex64(index uint64, depth uint8) (Gindex64, error) {
 		return 0, fmt.Errorf("index %d is larger than anchor %d derived from depth %d", index, anchor, depth)
 	}
 	return Gindex64(anchor | index), nil
+}
+
+type Gindex64BitIter struct {
+	Marker uint64
+	Gindex uint64
+}
+
+func (iter *Gindex64BitIter) Next() (right bool, ok bool) {
+	iter.Marker >>= 1
+	return iter.Gindex & iter.Marker != 0, iter.Marker != 0
 }

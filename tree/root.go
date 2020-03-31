@@ -1,7 +1,5 @@
 package tree
 
-import "fmt"
-
 type Root [32]byte
 
 // Backing, a root can be used as a view representing itself.
@@ -9,30 +7,55 @@ func (r *Root) Backing() Node {
 	return r
 }
 
+func (r *Root) Left() (Node, error) {
+	return nil, NavigationError
+}
+
+func (r *Root) Right() (Node, error) {
+	return nil, NavigationError
+}
+
+func (r *Root) IsLeaf() bool {
+	return true
+}
+
+func (r *Root) RebindLeft(v Node) (Node, error) {
+	return nil, NavigationError
+}
+
+func (r *Root) RebindRight(v Node) (Node, error) {
+	return nil, NavigationError
+}
+
 func (r *Root) Getter(target Gindex) (Node, error) {
-	if !target.IsRoot() {
-		return nil, fmt.Errorf("A Root does not have any child nodes to Get")
+	if target.IsRoot() {
+		return r, nil
+	} else {
+		return nil, NavigationError
 	}
-	return r, nil
 }
 
-func (r *Root) Setter(target Gindex) (Link, error) {
-	if !target.IsRoot() {
-		return nil, fmt.Errorf("A Root does not have any child nodes to Set")
-	}
-	return Identity, nil
-}
-
-func (r *Root) ExpandInto(target Gindex) (Link, error) {
+func (r *Root) Setter(target Gindex, expand bool) (Link, error) {
 	if target.IsRoot() {
 		return Identity, nil
 	}
-	depth := target.Depth()
-	startC := &Commit{
-		Left:  &ZeroHashes[depth-1],
-		Right: &ZeroHashes[depth-1],
+	if expand {
+		child := ZeroNode(target.Depth())
+		p := NewPairNode(child, child)
+		return p.Setter(target, expand)
+	} else {
+		return nil, NavigationError
 	}
-	return startC.ExpandInto(target.Subtree())
+}
+
+func (r *Root) SummarizeInto(target Gindex, h HashFn) (SummaryLink, error) {
+	if target.IsRoot() {
+		return func() (Node, error) {
+			return r, nil
+		}, nil
+	} else {
+		return nil, NavigationError
+	}
 }
 
 func (r *Root) MerkleRoot(h HashFn) Root {

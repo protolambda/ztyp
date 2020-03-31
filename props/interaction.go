@@ -1,6 +1,9 @@
 package props
 
-import . "github.com/protolambda/ztyp/view"
+import (
+	"errors"
+	. "github.com/protolambda/ztyp/view"
+)
 
 type ReadProp interface {
 	Read() (View, error)
@@ -9,6 +12,9 @@ type ReadProp interface {
 type ReadPropFn func() (View, error)
 
 func (f ReadPropFn) Read() (View, error) {
+	if f == nil {
+		return nil, errors.New("property is not available to read")
+	}
 	return f()
 }
 
@@ -19,6 +25,9 @@ type WriteProp interface {
 type WritePropFn func(v View) error
 
 func (f WritePropFn) Write(v View) error {
+	if f == nil {
+		return errors.New("property is not available to write")
+	}
 	return f(v)
 }
 
