@@ -2,11 +2,6 @@ package tree
 
 type Root [32]byte
 
-// Backing, a root can be used as a view representing itself.
-func (r *Root) Backing() Node {
-	return r
-}
-
 func (r *Root) Left() (Node, error) {
 	return nil, NavigationError
 }
