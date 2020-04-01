@@ -255,7 +255,7 @@ func (tv *ComplexListView) ReadonlyIter() ElemIter {
 		return ErrIter{err}
 	}
 	// ignore length mixin in stack
-	return elemReadonlyIter(node, 0, length, tv.depth - 1, tv.ElemType)
+	return elemReadonlyIter(node, length, tv.depth - 1, tv.ElemType)
 }
 
 func (tv *ComplexListView) ValueByteLength() (uint64, error) {

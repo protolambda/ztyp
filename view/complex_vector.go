@@ -149,7 +149,7 @@ func (tv *ComplexVectorView) Iter() ElemIter {
 
 func (tv *ComplexVectorView) ReadonlyIter() ElemIter {
 	// ignore length mixin in stack
-	return elemReadonlyIter(tv.BackingNode, 0, tv.VectorLength, tv.depth, tv.ElemType)
+	return elemReadonlyIter(tv.BackingNode, tv.VectorLength, tv.depth, tv.ElemType)
 }
 
 func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {

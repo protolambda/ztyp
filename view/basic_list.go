@@ -292,7 +292,7 @@ func (tv *BasicListView) ReadonlyIter() ElemIter {
 		return ErrIter{err}
 	}
 	// ignore length mixin in stack
-	return basicElemReadonlyIter(node, 0, length, tv.depth - 1, tv.ElemType)
+	return basicElemReadonlyIter(node, length, tv.depth - 1, tv.ElemType)
 }
 
 func (tv *BasicListView) ValueByteLength() (uint64, error) {

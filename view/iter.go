@@ -5,10 +5,10 @@ import (
 	. "github.com/protolambda/ztyp/tree"
 )
 
-func basicElemReadonlyIter(node Node, startingIndex uint64, endIndex uint64, depth uint8, elemType BasicTypeDef) ElemIter {
+func basicElemReadonlyIter(node Node, endIndex uint64, depth uint8, elemType BasicTypeDef) ElemIter {
 	stack := make([]Node, depth, depth)
 
-	i := startingIndex
+	i := uint64(0)
 	// max 32 elements per bottom nodes, uint8 is safe.
 	perNode := 32 / uint8(elemType.TypeByteLength())
 	j := uint8(i) % perNode
@@ -82,10 +82,10 @@ func basicElemReadonlyIter(node Node, startingIndex uint64, endIndex uint64, dep
 	})
 }
 
-func elemReadonlyIter(node Node, startingIndex uint64, endIndex uint64, depth uint8, elemType TypeDef) ElemIter {
+func elemReadonlyIter(node Node, endIndex uint64, depth uint8, elemType TypeDef) ElemIter {
 	stack := make([]Node, depth, depth)
 
-	i := startingIndex
+	i := uint64(0)
 	rootIndex := uint64(0)
 	return ElemIterFn(func() (elem View, ok bool, err error) {
 		// done yet?

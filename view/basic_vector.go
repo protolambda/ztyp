@@ -155,7 +155,7 @@ func (tv *BasicVectorView) Iter() ElemIter {
 
 func (tv *BasicVectorView) ReadonlyIter() ElemIter {
 	// ignore length mixin in stack
-	return basicElemReadonlyIter(tv.BackingNode, 0, tv.VectorLength, tv.depth, tv.ElemType)
+	return basicElemReadonlyIter(tv.BackingNode, tv.VectorLength, tv.depth, tv.ElemType)
 }
 
 func (tv *BasicVectorView) ValueByteLength() (uint64, error) {
