@@ -9,13 +9,18 @@ type View interface {
 	Backing() Node
 	SetBacking(b Node) error
 	Copy() (View, error)
-	ValueByteLength() uint64
+	ValueByteLength() (uint64, error)
 	Serialize(w io.Writer) error
 	HashTreeRoot(h HashFn) Root
+	Type() TypeDef
 }
 
 type ViewBase struct {
 	TypeDef TypeDef
+}
+
+func (v *ViewBase) Type() TypeDef {
+	return v.TypeDef
 }
 
 type BackingHook func(b Node) error
@@ -44,6 +49,7 @@ type TypeDef interface {
 }
 
 type BasicView interface {
+	View
 	BackingFromBase(base *Root, i uint8) *Root
 }
 

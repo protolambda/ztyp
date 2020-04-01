@@ -49,11 +49,23 @@ type ListTypeDef interface {
 	Limit() uint64
 }
 
-func ListType(name string, elemType TypeDef, length uint64) ListTypeDef {
+func ListType(name string, elemType TypeDef, limit uint64) ListTypeDef {
 	basicElemType, ok := elemType.(BasicTypeDef)
 	if ok {
-		return BasicVectorType(name, basicElemType, length)
+		return BasicListType(name, basicElemType, limit)
 	} else {
-		return ComplexVectorType(name, elemType, length)
+		return ComplexListType(name, elemType, limit)
 	}
+}
+
+type ElemIterFn  func() (elem View, ok bool, err error)
+
+func (f ElemIterFn) Next() (elem View, ok bool, err error) {
+	return f()
+}
+
+type ElemIter interface {
+	// Next gets the next element, ok is true if it actually exists.
+	// An error may occur if data is missing or corrupt.
+	Next() (elem View, ok bool, err error)
 }

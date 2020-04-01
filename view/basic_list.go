@@ -4,37 +4,66 @@ import (
 	"encoding/binary"
 	"fmt"
 	. "github.com/protolambda/ztyp/tree"
+	"io"
 )
 
 type BasicListTypeDef struct {
-	ElementType BasicTypeDef
-	Limit       uint64
+	ElemType  BasicTypeDef
+	ListLimit uint64
+	ComplexTypeBase
+}
+
+func BasicListType(name string, elemType BasicTypeDef, limit uint64) *BasicListTypeDef {
+	return &BasicListTypeDef{
+		ElemType:  elemType,
+		ListLimit: limit,
+		ComplexTypeBase: ComplexTypeBase{
+			TypeName:    name,
+			MinSize:     0,
+			MaxSize:     limit * elemType.TypeByteLength(),
+			Size:        0,
+			IsFixedSize: false,
+		},
+	}
+}
+
+func (td *BasicListTypeDef) ElementType() TypeDef {
+	return td.ElemType
+}
+
+func (td *BasicListTypeDef) Limit() uint64 {
+	return td.ListLimit
 }
 
 func (td *BasicListTypeDef) DefaultNode() Node {
-	depth := GetDepth(td.BottomNodeLimit())
-	return &Commit{Left: &ZeroHashes[depth], Right: &ZeroHashes[0]}
+	depth := CoverDepth(td.BottomNodeLimit())
+	return &PairNode{LeftChild: &ZeroHashes[depth], RightChild: &ZeroHashes[0]}
 }
 
-func (td *BasicListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
-	depth := GetDepth(td.BottomNodeLimit())
+func (td *BasicListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+	depth := CoverDepth(td.BottomNodeLimit())
 	return &BasicListView{
 		SubtreeView: SubtreeView{
-			BackingNode: node,
+			BackedView: BackedView{
+				ViewBase: ViewBase{
+					TypeDef: td,
+				},
+				Hook: hook,
+				BackingNode: node,
+			},
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		BasicListTypeDef: td,
-		ViewHook:         hook,
 	}, nil
 }
 
 func (td *BasicListTypeDef) ElementsPerBottomNode() uint64 {
-	return 32 / td.ElementType.ByteLength()
+	return 32 / td.ElemType.TypeByteLength()
 }
 
 func (td *BasicListTypeDef) BottomNodeLimit() uint64 {
 	perNode := td.ElementsPerBottomNode()
-	return (td.Limit + perNode - 1) / perNode
+	return (td.ListLimit + perNode - 1) / perNode
 }
 
 func (td *BasicListTypeDef) TranslateIndex(index uint64) (nodeIndex uint64, intraNodeIndex uint8) {
@@ -42,35 +71,40 @@ func (td *BasicListTypeDef) TranslateIndex(index uint64) (nodeIndex uint64, intr
 	return index / perNode, uint8(index & (perNode - 1))
 }
 
-func (td *BasicListTypeDef) New(hook ViewHook) *BasicListView {
+func (td *BasicListTypeDef) Default(hook BackingHook) View {
+	return td.New(hook)
+}
+
+func (td *BasicListTypeDef) New(hook BackingHook) *BasicListView {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*BasicListView)
 }
 
-func BasicListType(elemType BasicTypeDef, limit uint64) *BasicListTypeDef {
-	return &BasicListTypeDef{
-		ElementType: elemType,
-		Limit:       limit,
-	}
+func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) error {
+	// TODO
+	return nil
+}
+
+func (td *BasicListTypeDef) String() string {
+	return fmt.Sprintf("List[%s, %d]", td.ElemType.Name(), td.ListLimit)
 }
 
 type BasicListView struct {
 	SubtreeView
 	*BasicListTypeDef
-	ViewHook
 }
 
 func (tv *BasicListView) ViewRoot(h HashFn) Root {
 	return tv.BackingNode.MerkleRoot(h)
 }
 
-func (tv *BasicListView) Append(view SubView) error {
+func (tv *BasicListView) Append(view BasicView) error {
 	ll, err := tv.Length()
 	if err != nil {
 		return err
 	}
-	if ll >= tv.Limit {
-		return fmt.Errorf("list length is %d and appending would exceed the list limit %d", ll, tv.Limit)
+	if ll >= tv.ListLimit {
+		return fmt.Errorf("list length is %d and appending would exceed the list limit %d", ll, tv.ListLimit)
 	}
 	perNode := tv.ElementsPerBottomNode()
 	// Appending is done by modifying the bottom node at the index list_length. And expanding where necessary as it is being set.
@@ -78,30 +112,37 @@ func (tv *BasicListView) Append(view SubView) error {
 	if err != nil {
 		return err
 	}
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
+	setLast, err := tv.SubtreeView.BackingNode.Setter(lastGindex, true)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to append an item")
 	}
+	var bNode Node
 	if ll%perNode == 0 {
 		// New bottom node
-		tv.BackingNode = setLast(view.BackingFromBase(&ZeroHashes[0], 0))
+		bNode, err = setLast(view.BackingFromBase(&ZeroHashes[0], 0))
+		if err != nil {
+			return err
+		}
 	} else {
 		// Apply to existing partially zeroed bottom node
 		r, _, subIndex, err := tv.subviewNode(ll)
 		if err != nil {
 			return err
 		}
-		tv.BackingNode = setLast(view.BackingFromBase(r, subIndex))
+		bNode, err = setLast(view.BackingFromBase(r, subIndex))
+		if err != nil {
+			return err
+		}
 	}
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
+	setLength, err := bNode.Setter(RightGindex, false)
 	if err != nil {
 		return err
 	}
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll+1)
-	tv.BackingNode = setLength(newLength)
-	return tv.PropagateChange(tv)
+	bNode, err = setLength(newLength)
+	return tv.SetBacking(bNode)
 }
 
 func (tv *BasicListView) Pop() error {
@@ -118,7 +159,7 @@ func (tv *BasicListView) Pop() error {
 	if err != nil {
 		return err
 	}
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
+	setLast, err := tv.SubtreeView.BackingNode.Setter(lastGindex, true)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to pop an item")
 	}
@@ -129,20 +170,26 @@ func (tv *BasicListView) Pop() error {
 	}
 	// Pop the item by setting it to the default
 	// Update the view to the new tree containing this item.
-	defaultElement, err := tv.ElementType.SubViewFromBacking(&ZeroHashes[0], subIndex)
+	defaultElement, err := tv.ElemType.BasicViewFromBacking(&ZeroHashes[0], subIndex)
 	if err != nil {
 		return err
 	}
-	tv.BackingNode = setLast(defaultElement.BackingFromBase(r, subIndex))
+	bNode, err := setLast(defaultElement.BackingFromBase(r, subIndex))
+	if err != nil {
+		return err
+	}
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
+	setLength, err := bNode.Setter(RightGindex, false)
 	if err != nil {
 		return err
 	}
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll-1)
-	tv.BackingNode = setLength(newLength)
-	return tv.PropagateChange(tv)
+	bNode, err = setLength(newLength)
+	if err != nil {
+		return err
+	}
+	return tv.SetBacking(bNode)
 }
 
 func (tv *BasicListView) CheckIndex(i uint64) error {
@@ -153,15 +200,15 @@ func (tv *BasicListView) CheckIndex(i uint64) error {
 	if i >= ll {
 		return fmt.Errorf("cannot handle item at element index %d, list only has %d elements", i, ll)
 	}
-	if i >= tv.Limit {
-		return fmt.Errorf("list has a an invalid length of %d and cannot handle an element at index %d because of a limit of %d elements", ll, i, tv.Limit)
+	if i >= tv.ListLimit {
+		return fmt.Errorf("list has a an invalid length of %d and cannot handle an element at index %d because of a limit of %d elements", ll, i, tv.ListLimit)
 	}
 	return nil
 }
 
 func (tv *BasicListView) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {
 	bottomIndex, subIndex = tv.TranslateIndex(i)
-	v, err := tv.SubtreeView.Get(bottomIndex)
+	v, err := tv.SubtreeView.GetNode(bottomIndex)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -172,7 +219,7 @@ func (tv *BasicListView) subviewNode(i uint64) (r *Root, bottomIndex uint64, sub
 	return r, bottomIndex, subIndex, nil
 }
 
-func (tv *BasicListView) Get(i uint64) (SubView, error) {
+func (tv *BasicListView) Get(i uint64) (BasicView, error) {
 	if err := tv.CheckIndex(i); err != nil {
 		return nil, err
 	}
@@ -180,10 +227,10 @@ func (tv *BasicListView) Get(i uint64) (SubView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return tv.ElementType.SubViewFromBacking(r, subIndex)
+	return tv.ElemType.BasicViewFromBacking(r, subIndex)
 }
 
-func (tv *BasicListView) Set(i uint64, v SubView) error {
+func (tv *BasicListView) Set(i uint64, v BasicView) error {
 	if err := tv.CheckIndex(i); err != nil {
 		return err
 	}
@@ -191,10 +238,7 @@ func (tv *BasicListView) Set(i uint64, v SubView) error {
 	if err != nil {
 		return err
 	}
-	if err := tv.SubtreeView.Set(bottomIndex, v.BackingFromBase(r, subIndex)); err != nil {
-		return err
-	}
-	return tv.PropagateChange(tv)
+	return tv.SubtreeView.SetNode(bottomIndex, v.BackingFromBase(r, subIndex))
 }
 
 func (tv *BasicListView) Length() (uint64, error) {
@@ -207,8 +251,42 @@ func (tv *BasicListView) Length() (uint64, error) {
 		return 0, fmt.Errorf("cannot read node %v as list-length", v)
 	}
 	ll := binary.LittleEndian.Uint64(llBytes[:8])
-	if ll > tv.Limit {
+	if ll > tv.ListLimit {
 		return 0, fmt.Errorf("cannot read list length, length appears to be bigger than limit allows")
 	}
 	return ll, nil
 }
+
+func (tv *BasicListView) Copy() (View, error) {
+	tvCopy := *tv
+	tvCopy.Hook = nil
+	return &tvCopy, nil
+}
+
+func (tv *BasicListView) Iter() ElemIter {
+	i := uint64(0)
+	length, err := tv.Length()
+	return ElemIterFn(func() (elem View, ok bool, err error) {
+		// TODO
+	})
+}
+
+func (tv *BasicListView) ReadonlyIter() ElemIter {
+	return ElemIterFn(func() (elem View, ok bool, err error) {
+		// TODO
+	})
+}
+
+func (tv *BasicListView) ValueByteLength() (uint64, error) {
+	length, err := tv.Length()
+	if err != nil {
+		return 0, err
+	}
+	return length * tv.ElemType.TypeByteLength(), nil
+}
+
+func (tv *BasicListView) Serialize(w io.Writer) error {
+	// TODO
+	return nil
+}
+

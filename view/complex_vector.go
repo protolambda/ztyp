@@ -7,8 +7,8 @@ import (
 )
 
 type ComplexVectorTypeDef struct {
-	ElemType TypeDef
-	Len      uint64
+	ElemType     TypeDef
+	VectorLength uint64
 	ComplexTypeBase
 }
 
@@ -26,8 +26,8 @@ func ComplexVectorType(name string, elemType TypeDef, length uint64) *ComplexVec
 		maxSize = (length + OffsetByteLength) * elemType.MaxByteLength()
 	}
 	return &ComplexVectorTypeDef{
-		ElemType: elemType,
-		Len:      length,
+		ElemType:     elemType,
+		VectorLength: length,
 		ComplexTypeBase: ComplexTypeBase{
 			TypeName: name,
 			MinSize: minSize,
@@ -43,20 +43,20 @@ func (td *ComplexVectorTypeDef) ElementType() TypeDef {
 }
 
 func (td *ComplexVectorTypeDef) Length() uint64 {
-	return td.Len
+	return td.VectorLength
 }
 
 func (td *ComplexVectorTypeDef) DefaultNode() Node {
-	depth := CoverDepth(td.Len)
+	depth := CoverDepth(td.VectorLength)
 	// The same node N times: the node is immutable, so re-use is safe.
 	defaultNode := td.ElemType.DefaultNode()
 	// can ignore error, depth is derived from length.
-	rootNode, _ := SubtreeFillToLength(defaultNode, depth, td.Len)
+	rootNode, _ := SubtreeFillToLength(defaultNode, depth, td.VectorLength)
 	return rootNode
 }
 
 func (td *ComplexVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
-	depth := CoverDepth(td.Len)
+	depth := CoverDepth(td.VectorLength)
 	return &ComplexVectorView{
 		SubtreeView: SubtreeView{
 			BackedView: BackedView{
@@ -87,7 +87,7 @@ func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) error {
 }
 
 func (td *ComplexVectorTypeDef) String() string {
-	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.Name(), td.Len)
+	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.Name(), td.VectorLength)
 }
 
 type ComplexVectorView struct {
@@ -100,8 +100,8 @@ func (tv *ComplexVectorView) HashTreeRoot(h HashFn) Root {
 }
 
 func (tv *ComplexVectorView) Get(i uint64) (View, error) {
-	if i >= tv.ComplexVectorTypeDef.Len {
-		return nil, fmt.Errorf("cannot get item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.Len)
+	if i >= tv.ComplexVectorTypeDef.VectorLength {
+		return nil, fmt.Errorf("cannot get item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.VectorLength)
 	}
 	v, err := tv.SubtreeView.GetNode(i)
 	if err != nil {
@@ -115,8 +115,8 @@ func (tv *ComplexVectorView) Set(i uint64, v View) error {
 }
 
 func (tv *ComplexVectorView) setNode(i uint64, b Node) error {
-	if i >= tv.ComplexVectorTypeDef.Len {
-		return fmt.Errorf("cannot set item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.Len)
+	if i >= tv.ComplexVectorTypeDef.VectorLength {
+		return fmt.Errorf("cannot set item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.VectorLength)
 	}
 	return tv.SubtreeView.SetNode(i, b)
 }
@@ -133,12 +133,12 @@ func (tv *ComplexVectorView) Copy() (View, error) {
 	return &tvCopy, nil
 }
 
-func (tv *ComplexVectorView) ValueByteLength() uint64 {
+func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
 	if tv.IsFixedSize {
-		return tv.Size
+		return tv.Size, nil
 	}
 	// TODO
-	return 0
+	return 0, nil
 }
 
 func (tv *ComplexVectorView) Serialize(w io.Writer) error {

@@ -8,6 +8,39 @@ import (
 
 type RootMeta uint8
 
+func (m RootMeta) Default(hook BackingHook) View {
+	return &RootView{}
+}
+
+func (m RootMeta) IsFixedByteLength() bool {
+	return true
+}
+
+func (m RootMeta) TypeByteLength() uint64 {
+	return 32
+}
+
+func (m RootMeta) MinByteLength() uint64 {
+	return 32
+}
+
+func (m RootMeta) MaxByteLength() uint64 {
+	return 32
+}
+
+func (m RootMeta) Deserialize(r io.Reader, scope uint64) error {
+	// TODO
+	return nil
+}
+
+func (m RootMeta) Name() string {
+	return "Root"
+}
+
+func (m RootMeta) String() string {
+	return "Root"
+}
+
 func (RootMeta) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
@@ -25,6 +58,10 @@ const RootType RootMeta = 0
 
 type RootView Root
 
+func (r *RootView) Type() TypeDef {
+	return RootType
+}
+
 // Backing, a root can be used as a view representing itself.
 func (r *RootView) Backing() Node {
 	return (*Root)(r)
@@ -38,8 +75,8 @@ func (r *RootView) Copy() (View, error) {
 	return r, nil
 }
 
-func (r *RootView) ValueByteLength() uint64 {
-	return 32
+func (r *RootView) ValueByteLength() (uint64, error) {
+	return 32, nil
 }
 
 func (r *RootView) Serialize(w io.Writer) error {

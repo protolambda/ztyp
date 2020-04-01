@@ -122,12 +122,12 @@ func (tv *ContainerView) Copy() (View, error) {
 	return &tvCopy, nil
 }
 
-func (tv *ContainerView) ValueByteLength() uint64 {
+func (tv *ContainerView) ValueByteLength() (uint64, error) {
 	if tv.IsFixedSize {
-		return tv.Size
+		return tv.Size, nil
 	}
 	// TODO
-	return 0
+	return 0, nil
 }
 
 func (tv *ContainerView) Serialize(w io.Writer) error {
