@@ -58,6 +58,14 @@ func ListType(name string, elemType TypeDef, limit uint64) ListTypeDef {
 	}
 }
 
+type ErrIter struct {
+	error
+}
+
+func (e ErrIter) Next() (elem View, ok bool, err error) {
+	return nil, false, e.error
+}
+
 type ElemIterFn  func() (elem View, ok bool, err error)
 
 func (f ElemIterFn) Next() (elem View, ok bool, err error) {

@@ -133,6 +133,25 @@ func (tv *ComplexVectorView) Copy() (View, error) {
 	return &tvCopy, nil
 }
 
+func (tv *ComplexVectorView) Iter() ElemIter {
+	i := uint64(0)
+	return ElemIterFn(func() (elem View, ok bool, err error) {
+		if i < tv.VectorLength {
+			elem, err = tv.Get(i)
+			ok = true
+			i += 1
+			return
+		} else {
+			return nil, false, nil
+		}
+	})
+}
+
+func (tv *ComplexVectorView) ReadonlyIter() ElemIter {
+	// ignore length mixin in stack
+	return elemReadonlyIter(tv.BackingNode, 0, tv.VectorLength, tv.depth, tv.ElemType)
+}
+
 func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
 	if tv.IsFixedSize {
 		return tv.Size, nil

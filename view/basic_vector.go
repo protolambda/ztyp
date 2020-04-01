@@ -7,16 +7,16 @@ import (
 )
 
 type BasicVectorTypeDef struct {
-	ElemType BasicTypeDef
-	Len      uint64
+	ElemType     BasicTypeDef
+	VectorLength uint64
 	ComplexTypeBase
 }
 
 func BasicVectorType(name string, elemType BasicTypeDef, length uint64) *BasicVectorTypeDef {
 	size := length * elemType.TypeByteLength()
 	return &BasicVectorTypeDef{
-		ElemType: elemType,
-		Len:      length,
+		ElemType:     elemType,
+		VectorLength: length,
 		ComplexTypeBase: ComplexTypeBase{
 			TypeName: name,
 			MinSize: size,
@@ -32,7 +32,7 @@ func (td *BasicVectorTypeDef) ElementType() TypeDef {
 }
 
 func (td *BasicVectorTypeDef) Length() uint64 {
-	return td.Len
+	return td.VectorLength
 }
 
 func (td *BasicVectorTypeDef) DefaultNode() Node {
@@ -63,7 +63,7 @@ func (td *BasicVectorTypeDef) ElementsPerBottomNode() uint64 {
 
 func (td *BasicVectorTypeDef) BottomNodeLength() uint64 {
 	perNode := td.ElementsPerBottomNode()
-	return (td.Len + perNode - 1) / perNode
+	return (td.VectorLength + perNode - 1) / perNode
 }
 
 func (td *BasicVectorTypeDef) TranslateIndex(index uint64) (nodeIndex uint64, intraNodeIndex uint8) {
@@ -86,7 +86,7 @@ func (td *BasicVectorTypeDef) Deserialize(r io.Reader, scope uint64) error {
 }
 
 func (td *BasicVectorTypeDef) String() string {
-	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.Name(), td.Len)
+	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.Name(), td.VectorLength)
 }
 
 type BasicVectorView struct {
@@ -112,8 +112,8 @@ func (tv *BasicVectorView) subviewNode(i uint64) (r *Root, bottomIndex uint64, s
 }
 
 func (tv *BasicVectorView) Get(i uint64) (BasicView, error) {
-	if i >= tv.Len {
-		return nil, fmt.Errorf("basic vector has length %d, cannot get index %d", tv.Len, i)
+	if i >= tv.VectorLength {
+		return nil, fmt.Errorf("basic vector has length %d, cannot get index %d", tv.VectorLength, i)
 	}
 	r, _, subIndex, err := tv.subviewNode(i)
 	if err != nil {
@@ -123,8 +123,8 @@ func (tv *BasicVectorView) Get(i uint64) (BasicView, error) {
 }
 
 func (tv *BasicVectorView) Set(i uint64, v BasicView) error {
-	if i >= tv.Len {
-		return fmt.Errorf("cannot set item at element index %d, basic vector only has %d elements", i, tv.Len)
+	if i >= tv.VectorLength {
+		return fmt.Errorf("cannot set item at element index %d, basic vector only has %d elements", i, tv.VectorLength)
 	}
 	r, bottomIndex, subIndex, err := tv.subviewNode(i)
 	if err != nil {
@@ -139,8 +139,27 @@ func (tv *BasicVectorView) Copy() (View, error) {
 	return &tvCopy, nil
 }
 
-func (tv *BasicVectorView) ValueByteLength() uint64 {
-	return tv.Size
+func (tv *BasicVectorView) Iter() ElemIter {
+	i := uint64(0)
+	return ElemIterFn(func() (elem View, ok bool, err error) {
+		if i < tv.VectorLength {
+			elem, err = tv.Get(i)
+			ok = true
+			i += 1
+			return
+		} else {
+			return nil, false, nil
+		}
+	})
+}
+
+func (tv *BasicVectorView) ReadonlyIter() ElemIter {
+	// ignore length mixin in stack
+	return basicElemReadonlyIter(tv.BackingNode, 0, tv.VectorLength, tv.depth, tv.ElemType)
+}
+
+func (tv *BasicVectorView) ValueByteLength() (uint64, error) {
+	return tv.Size, nil
 }
 
 func (tv *BasicVectorView) Serialize(w io.Writer) error {

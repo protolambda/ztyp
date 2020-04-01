@@ -264,17 +264,35 @@ func (tv *BasicListView) Copy() (View, error) {
 }
 
 func (tv *BasicListView) Iter() ElemIter {
-	i := uint64(0)
 	length, err := tv.Length()
+	if err != nil {
+		return ErrIter{err}
+	}
+	i := uint64(0)
 	return ElemIterFn(func() (elem View, ok bool, err error) {
-		// TODO
+		if i < length {
+			elem, err = tv.Get(i)
+			ok = true
+			i += 1
+			return
+		} else {
+			return nil, false, nil
+		}
 	})
 }
 
 func (tv *BasicListView) ReadonlyIter() ElemIter {
-	return ElemIterFn(func() (elem View, ok bool, err error) {
-		// TODO
-	})
+	length, err := tv.Length()
+	if err != nil {
+		return ErrIter{err}
+	}
+	// get contents subtree, to traverse with the stack
+	node, err := tv.BackingNode.Left()
+	if err != nil {
+		return ErrIter{err}
+	}
+	// ignore length mixin in stack
+	return basicElemReadonlyIter(node, 0, length, tv.depth - 1, tv.ElemType)
 }
 
 func (tv *BasicListView) ValueByteLength() (uint64, error) {
