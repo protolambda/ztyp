@@ -29,8 +29,12 @@ func (m RootMeta) MaxByteLength() uint64 {
 }
 
 func (m RootMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	if scope < 32 {
+		return nil, fmt.Errorf("scope of %d not enough for root", scope)
+	}
+	v := RootView{}
+	_, err := r.Read(v[:])
+	return &v, err
 }
 
 func (m RootMeta) Name() string {

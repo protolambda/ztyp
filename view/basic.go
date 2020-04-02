@@ -87,7 +87,9 @@ func (td UintMeta) MaxByteLength() uint64 {
 }
 
 func (td UintMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO: maybe check scope?
+	if scope < uint64(td) {
+		return nil, fmt.Errorf("scope of %d bytes not enough for %s", scope, td.Name())
+	}
 	tmp := make([]byte, td, td)
 	_, err := r.Read(tmp)
 	if err != nil {
@@ -360,8 +362,18 @@ func (td BoolMeta) MaxByteLength() uint64 {
 }
 
 func (td BoolMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	if scope == 0 {
+		return nil, errors.New("cannot read bool, scope is 0")
+	}
+	b := [1]byte{}
+	_, err := r.Read(b[:])
+	if err != nil {
+		return nil, err
+	}
+	if b[0] > 1 {
+		return nil, fmt.Errorf("invalid bool value: 0x%x", b[0])
+	}
+	return BoolView(b[0] == 1), nil
 }
 
 func (td BoolMeta) Name() string {

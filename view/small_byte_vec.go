@@ -50,8 +50,12 @@ func (td SmallByteVecMeta) MaxByteLength() uint64 {
 }
 
 func (td SmallByteVecMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	if scope < uint64(td) {
+		return nil, fmt.Errorf("scope of %d not enough for small byte vec of %d bytes", scope, td)
+	}
+	v := make(SmallByteVecView, td, td)
+	_, err := r.Read(v)
+	return v, err
 }
 
 func (td SmallByteVecMeta) Name() string {
