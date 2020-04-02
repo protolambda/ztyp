@@ -1,7 +1,7 @@
 package view
 
 import (
-	"fmt"
+	"errors"
 	. "github.com/protolambda/ztyp/tree"
 )
 
@@ -35,31 +35,47 @@ func (stv *SubtreeView) SetNode(i uint64, node Node) error {
 }
 
 // Copy over the roots at the bottom of the subtree from left to right into dest (until dest is full)
-func (stv *SubtreeView) IntoBytes(dest []byte) error {
-	copyChunk := func(i uint64, dest []byte) error {
-		v, err := stv.GetNode(i)
-		if err != nil {
-			return err
-		}
-		r, ok := v.(*Root)
+func SubtreeIntoBytes(anchor Node, depth uint8, dest []byte) error {
+	copyChunk := func(node Node, dest []byte) error {
+		r, ok := node.(*Root)
 		if !ok {
-			return fmt.Errorf("basic vector bottom node is not a root, at bottom node index %d", i)
+			return errors.New("bottom node is not a root")
 		}
+		// limits to smallest part: cap at 32 (the root), and dest (may be smaller than 32)
 		copy(dest, r[:])
 		return nil
 	}
-	endChunk := uint64(len(dest)) >> 5
-	// copy over full chunks
-	for i := uint64(0); i < endChunk; i++ {
-		if err := copyChunk(i, dest[i<<5:(i+1)<<5]); err != nil {
+	length := (uint64(len(dest)) + 31) >> 5
+	iter := nodeReadonlyIter(anchor, length, depth)
+	for i := uint64(0); i < length; i++ {
+		node, ok, err := iter.Next()
+		if err != nil {
 			return err
 		}
-	}
-	// copy over partial last chunk
-	if endChunk<<5 != uint64(len(dest)) {
-		if err := copyChunk(endChunk, dest[endChunk<<5:]); err != nil {
+		if !ok {
+			return errors.New("unexpected early iter end")
+		}
+		if err := copyChunk(node, dest[i<<5:]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func BytesIntoNodes(contents []byte) ([]Node, error) {
+	chunkCount := (len(contents) + 31) / 32
+	if chunkCount == 0 {
+		return nil, nil
+	}
+	chunks := make([]Node, chunkCount, chunkCount)
+	offset := 0
+	for i := 0; i < chunkCount; i++ {
+		root := &Root{}
+		// copy as much as possible
+		// (root is limited to 32 bytes, contents slice may be smaller than 32 at the end)
+		copy(root[:], contents[offset:])
+		chunks[i] = root
+		offset += 32
+	}
+	return chunks, nil
 }

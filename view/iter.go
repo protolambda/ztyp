@@ -82,12 +82,12 @@ func basicElemReadonlyIter(node Node, length uint64, depth uint8, elemType Basic
 	})
 }
 
-func elemReadonlyIter(node Node, length uint64, depth uint8, elemType TypeDef) ElemIter {
+func nodeReadonlyIter(node Node, length uint64, depth uint8) NodeIter {
 	stack := make([]Node, depth, depth)
 
 	i := uint64(0)
 	rootIndex := uint64(0)
-	return ElemIterFn(func() (elem View, ok bool, err error) {
+	return NodeIterFn(func() (chunk Node, ok bool, err error) {
 		// done yet?
 		if i >= length {
 			return nil, false, nil
@@ -123,6 +123,21 @@ func elemReadonlyIter(node Node, length uint64, depth uint8, elemType TypeDef) E
 			stack[stackIndex] = node
 		}
 
+		// Return the actual element
+		return node, true, nil
+	})
+}
+
+func elemReadonlyIter(node Node, length uint64, depth uint8, elemType TypeDef) ElemIter {
+	nodeIter := nodeReadonlyIter(node, length, depth)
+	return ElemIterFn(func() (elem View, ok bool, err error) {
+		node, ok, err := nodeIter.Next()
+		if err != nil {
+			return nil, false, err
+		}
+		if !ok {
+			return nil, false, nil
+		}
 		el, err := elemType.ViewFromBacking(node, nil)
 		if err != nil {
 			return nil, false, err
@@ -133,51 +148,25 @@ func elemReadonlyIter(node Node, length uint64, depth uint8, elemType TypeDef) E
 }
 
 func fieldReadonlyIter(node Node, depth uint8, fields []FieldDef) ElemIter {
-	stack := make([]Node, depth, depth)
-
-	i := uint64(0)
 	length := uint64(len(fields))
-	rootIndex := uint64(0)
+	i := uint64(0)
+	nodeIter := nodeReadonlyIter(node, length, depth)
 	return ElemIterFn(func() (elem View, ok bool, err error) {
-		// done yet?
-		if i >= length {
-			return nil, false, nil
-		}
-		stackIndex := uint8(0)
-		if rootIndex != 0 {
-			// XOR current index with previous index
-			// Result: highest bit matches amount we have to backtrack up the stack
-			s := rootIndex ^ (rootIndex - 1)
-			stackIndex = depth - 1
-			for s != 0 {
-				s >>= 0
-				stackIndex -= 1
-			}
-			// then move to the right from that upper previously remembered left-hand node
-			node = stack[stackIndex]
-			node, err = node.Right()
-			if err != nil {
-				return nil, false, err
-			}
-			stackIndex += 1
-		} else {
-			stack[0] = node
-			stackIndex = 1
-		}
-		// and move down left into this new subtree
-		for ; stackIndex < depth; stackIndex++ {
-			node, err = node.Left()
-			if err != nil {
-				return nil, false, err
-			}
-			// remember left-hand nodes, we may revisit them
-			stack[stackIndex] = node
-		}
-
-		el, err := fields[rootIndex].Type.ViewFromBacking(node, nil)
+		node, ok, err := nodeIter.Next()
 		if err != nil {
 			return nil, false, err
 		}
+		if !ok {
+			return nil, false, nil
+		}
+		if i >= length {
+			return nil, false, fmt.Errorf("node iter went too far, i: %d, length: %d", i, length)
+		}
+		el, err := fields[i].Type.ViewFromBacking(node, nil)
+		if err != nil {
+			return nil, false, err
+		}
+		i += 1
 		// Return the actual element
 		return el, true, nil
 	})

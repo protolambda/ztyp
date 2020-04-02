@@ -27,6 +27,22 @@ func BasicListType(name string, elemType BasicTypeDef, limit uint64) *BasicListT
 	}
 }
 
+func (td *BasicListTypeDef) FromElements(v... BasicView) (*BasicListView, error) {
+	length := uint64(len(v))
+	if length > td.ListLimit {
+		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
+	}
+	bottomNodes, err := td.ElemType.PackViews(v)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
+	listView, _ := td.ViewFromBacking(rootNode, nil)
+	return listView.(*BasicListView), nil
+}
+
 func (td *BasicListTypeDef) ElementType() TypeDef {
 	return td.ElemType
 }
@@ -81,8 +97,27 @@ func (td *BasicListTypeDef) New(hook BackingHook) *BasicListView {
 }
 
 func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	elemSize := td.ElemType.TypeByteLength()
+	length := scope / elemSize
+	if length > td.ListLimit {
+		return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
+	}
+	if expected := length*elemSize; expected != scope {
+		return nil, fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
+	}
+	contents := make([]byte, scope, scope)
+	if _, err := r.Read(contents); err != nil {
+		return nil, err
+	}
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(length).Backing()}
+	listView, _ := td.ViewFromBacking(rootNode, nil)
+	return listView.(*BasicListView), nil
 }
 
 func (td *BasicListTypeDef) String() string {
@@ -266,7 +301,7 @@ func (tv *BasicListView) Copy() (View, error) {
 func (tv *BasicListView) Iter() ElemIter {
 	length, err := tv.Length()
 	if err != nil {
-		return ErrIter{err}
+		return ErrElemIter{err}
 	}
 	i := uint64(0)
 	return ElemIterFn(func() (elem View, ok bool, err error) {
@@ -284,12 +319,12 @@ func (tv *BasicListView) Iter() ElemIter {
 func (tv *BasicListView) ReadonlyIter() ElemIter {
 	length, err := tv.Length()
 	if err != nil {
-		return ErrIter{err}
+		return ErrElemIter{err}
 	}
 	// get contents subtree, to traverse with the stack
 	node, err := tv.BackingNode.Left()
 	if err != nil {
-		return ErrIter{err}
+		return ErrElemIter{err}
 	}
 	// ignore length mixin in stack
 	return basicElemReadonlyIter(node, length, tv.depth - 1, tv.ElemType)
@@ -304,7 +339,20 @@ func (tv *BasicListView) ValueByteLength() (uint64, error) {
 }
 
 func (tv *BasicListView) Serialize(w io.Writer) error {
-	// TODO
-	return nil
+	contentsAnchor, err := tv.BackingNode.Getter(LeftGindex)
+	if err != nil {
+		return err
+	}
+	length, err := tv.Length()
+	if err != nil {
+		return err
+	}
+	contents := make([]byte, length, length)
+	// one less depth, ignore length mix-in
+	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, contents); err != nil {
+		return err
+	}
+	_, err = w.Write(contents)
+	return err
 }
 

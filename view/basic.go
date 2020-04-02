@@ -70,6 +70,23 @@ func (td UintMeta) SubViewFromBacking(v *Root, i uint8) (BasicView, error) {
 	}
 }
 
+func (td UintMeta) PackViews(views []BasicView) ([]Node, error) {
+	// TODO
+	perNode := uint8(td.ElementsPerBottomNode())
+	maxChunks := td.BottomNodeLimit()
+	chunks := make([]Node, maxChunks, maxChunks)
+	i := uint64(0)
+	for chunk := uint64(0); chunk < maxChunks; chunk++ {
+		root := &Root{}
+		for j := uint8(0); j < perNode && i < length; j++ {
+			root = v[i].BackingFromBase(root, j)
+			i += 1
+		}
+	}
+	v[0].BackingFromBase()
+	return nil, nil
+}
+
 func (td UintMeta) IsFixedByteLength() bool {
 	return true
 }

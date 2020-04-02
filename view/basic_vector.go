@@ -27,6 +27,21 @@ func BasicVectorType(name string, elemType BasicTypeDef, length uint64) *BasicVe
 	}
 }
 
+func (td *BasicVectorTypeDef) FromElements(v... BasicView) (*BasicVectorView, error) {
+	length := uint64(len(v))
+	if length > td.VectorLength {
+		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.VectorLength, length)
+	}
+	bottomNodes, err := td.ElemType.PackViews(v)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLength())
+	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	listView, _ := td.ViewFromBacking(rootNode, nil)
+	return listView.(*BasicVectorView), nil
+}
+
 func (td *BasicVectorTypeDef) ElementType() TypeDef {
 	return td.ElemType
 }
@@ -81,8 +96,21 @@ func (td *BasicVectorTypeDef) New(hook BackingHook) *BasicVectorView {
 }
 
 func (td *BasicVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	if td.Size != scope {
+		return nil, fmt.Errorf("expected size %d does not match scope %d", td.Size, scope)
+	}
+	contents := make([]byte, scope, scope)
+	if _, err := r.Read(contents); err != nil {
+		return nil, err
+	}
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLength())
+	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	listView, _ := td.ViewFromBacking(rootNode, nil)
+	return listView.(*BasicVectorView), nil
 }
 
 func (td *BasicVectorTypeDef) String() string {
@@ -158,7 +186,10 @@ func (tv *BasicVectorView) ValueByteLength() (uint64, error) {
 }
 
 func (tv *BasicVectorView) Serialize(w io.Writer) error {
-	// TODO
-	return nil
+	contents := make([]byte, tv.Size, tv.Size)
+	if err := SubtreeIntoBytes(tv.BackingNode, tv.depth, contents); err != nil {
+		return err
+	}
+	_, err := w.Write(contents)
+	return err
 }
-

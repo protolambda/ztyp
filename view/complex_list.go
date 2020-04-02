@@ -302,7 +302,7 @@ func (tv *ComplexListView) Copy() (View, error) {
 func (tv *ComplexListView) Iter() ElemIter {
 	length, err := tv.Length()
 	if err != nil {
-		return ErrIter{err}
+		return ErrElemIter{err}
 	}
 	i := uint64(0)
 	return ElemIterFn(func() (elem View, ok bool, err error) {
@@ -320,12 +320,12 @@ func (tv *ComplexListView) Iter() ElemIter {
 func (tv *ComplexListView) ReadonlyIter() ElemIter {
 	length, err := tv.Length()
 	if err != nil {
-		return ErrIter{err}
+		return ErrElemIter{err}
 	}
 	// get contents subtree, to traverse with the stack
 	node, err := tv.BackingNode.Left()
 	if err != nil {
-		return ErrIter{err}
+		return ErrElemIter{err}
 	}
 	// ignore length mixin in stack
 	return elemReadonlyIter(node, length, tv.depth - 1, tv.ElemType)

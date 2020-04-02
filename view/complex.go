@@ -3,6 +3,7 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+	. "github.com/protolambda/ztyp/tree"
 	"io"
 )
 
@@ -74,11 +75,31 @@ func ListType(name string, elemType TypeDef, limit uint64) ListTypeDef {
 	}
 }
 
-type ErrIter struct {
+type ErrNodeIter struct {
 	error
 }
 
-func (e ErrIter) Next() (elem View, ok bool, err error) {
+func (e ErrNodeIter) Next() (chunk Node, ok bool, err error) {
+	return nil, false, e.error
+}
+
+type NodeIterFn  func() (chunk Node, ok bool, err error)
+
+func (f NodeIterFn) Next() (chunk Node, ok bool, err error) {
+	return f()
+}
+
+type NodeIter interface {
+	// Next gets the next node, ok is true if it actually exists.
+	// An error may occur if data is missing or corrupt.
+	Next() (chunk Node, ok bool, err error)
+}
+
+type ErrElemIter struct {
+	error
+}
+
+func (e ErrElemIter) Next() (elem View, ok bool, err error) {
 	return nil, false, e.error
 }
 
