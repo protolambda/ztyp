@@ -87,10 +87,6 @@ type ComplexListView struct {
 	*ComplexListTypeDef
 }
 
-func (tv *ComplexListView) HashTreeRoot(h HashFn) Root {
-	return tv.BackingNode.MerkleRoot(h)
-}
-
 func (tv *ComplexListView) Append(v View) error {
 	ll, err := tv.Length()
 	if err != nil {

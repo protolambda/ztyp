@@ -94,10 +94,6 @@ type BasicVectorView struct {
 	*BasicVectorTypeDef
 }
 
-func (tv *BasicVectorView) HashTreeRoot(h HashFn) Root {
-	return tv.BackingNode.MerkleRoot(h)
-}
-
 func (tv *BasicVectorView) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {
 	bottomIndex, subIndex = tv.TranslateIndex(i)
 	v, err := tv.SubtreeView.GetNode(bottomIndex)
@@ -154,7 +150,6 @@ func (tv *BasicVectorView) Iter() ElemIter {
 }
 
 func (tv *BasicVectorView) ReadonlyIter() ElemIter {
-	// ignore length mixin in stack
 	return basicElemReadonlyIter(tv.BackingNode, tv.VectorLength, tv.depth, tv.ElemType)
 }
 

@@ -4,26 +4,50 @@ import (
 	"encoding/binary"
 	"fmt"
 	. "github.com/protolambda/ztyp/tree"
+	"io"
 )
 
 type BitListTypeDef struct {
 	BitLimit uint64
+	ComplexTypeBase
+}
+
+func BitlistType(name string, limit uint64) *BitListTypeDef {
+	return &BitListTypeDef{
+		BitLimit: limit,
+		ComplexTypeBase: ComplexTypeBase{
+			TypeName:    name,
+			MinSize:     1,  // 1 byte, to do the 1 delimiting bit
+			MaxSize:     (limit + 7 + 1) / 8,
+			Size:        0,
+			IsFixedSize: false,
+		},
+	}
+}
+
+func (td *BitListTypeDef) Limit() uint64 {
+	return td.BitLimit
 }
 
 func (td *BitListTypeDef) DefaultNode() Node {
-	depth := GetDepth(td.BottomNodeLimit())
-	return &Commit{Left: &ZeroHashes[depth], Right: &ZeroHashes[0]}
+	depth := CoverDepth(td.BottomNodeLimit())
+	return &PairNode{LeftChild: &ZeroHashes[depth], RightChild: &ZeroHashes[0]}
 }
 
-func (td *BitListTypeDef) ViewFromBacking(node Node, hook ViewHook) (View, error) {
-	depth := GetDepth(td.BottomNodeLimit())
+func (td *BitListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+	depth := CoverDepth(td.BottomNodeLimit())
 	return &BitListView{
 		SubtreeView: SubtreeView{
-			BackingNode: node,
+			BackedView: BackedView{
+				ViewBase: ViewBase{
+					TypeDef: td,
+				},
+				Hook: hook,
+				BackingNode: node,
+			},
 			depth:       depth + 1, // +1 for length mix-in
 		},
 		BitListTypeDef: td,
-		ViewHook:       hook,
 	}, nil
 }
 
@@ -31,25 +55,28 @@ func (td *BitListTypeDef) BottomNodeLimit() uint64 {
 	return (td.BitLimit + 0xff) >> 8
 }
 
-func (td *BitListTypeDef) New(hook ViewHook) *BitListView {
+func (td *BitListTypeDef) Default(hook BackingHook) View {
+	return td.New(hook)
+}
+
+func (td *BitListTypeDef) New(hook BackingHook) *BitListView {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v.(*BitListView)
 }
 
-func BitlistType(limit uint64) *BitListTypeDef {
-	return &BitListTypeDef{
-		BitLimit: limit,
-	}
+func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) error {
+	// TODO
+	return nil
 }
+
+func (td *BitListTypeDef) String() string {
+	return fmt.Sprintf("Bitist[%d]", td.BitLimit)
+}
+
 
 type BitListView struct {
 	SubtreeView
 	*BitListTypeDef
-	ViewHook
-}
-
-func (tv *BitListView) ViewRoot(h HashFn) Root {
-	return tv.BackingNode.MerkleRoot(h)
 }
 
 func (tv *BitListView) Append(view BoolView) error {
@@ -65,30 +92,40 @@ func (tv *BitListView) Append(view BoolView) error {
 	if err != nil {
 		return err
 	}
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
+	setLast, err := tv.SubtreeView.BackingNode.Setter(lastGindex, true)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to append an item")
 	}
+	var bNode Node
 	if ll&0xff == 0 {
 		// New bottom node
-		tv.BackingNode = setLast(view.BackingFromBitfieldBase(&ZeroHashes[0], 0))
+		bNode, err = setLast(view.BackingFromBitfieldBase(&ZeroHashes[0], 0))
+		if err != nil {
+			return err
+		}
 	} else {
 		// Apply to existing partially zeroed bottom node
 		r, _, subIndex, err := tv.subviewNode(ll)
 		if err != nil {
 			return err
 		}
-		tv.BackingNode = setLast(view.BackingFromBitfieldBase(r, subIndex))
+		bNode, err = setLast(view.BackingFromBitfieldBase(r, subIndex))
+		if err != nil {
+			return err
+		}
 	}
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
+	setLength, err := bNode.Setter(RightGindex, false)
 	if err != nil {
 		return err
 	}
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll+1)
-	tv.BackingNode = setLength(newLength)
-	return tv.PropagateChange(tv)
+	bNode, err = setLength(newLength)
+	if err != nil {
+		return err
+	}
+	return tv.SetBacking(bNode)
 }
 
 func (tv *BitListView) Pop() error {
@@ -104,7 +141,7 @@ func (tv *BitListView) Pop() error {
 	if err != nil {
 		return err
 	}
-	setLast, err := tv.SubtreeView.BackingNode.ExpandInto(lastGindex)
+	setLast, err := tv.SubtreeView.BackingNode.Setter(lastGindex, true)
 	if err != nil {
 		return fmt.Errorf("failed to get a setter to pop a bit")
 	}
@@ -115,16 +152,22 @@ func (tv *BitListView) Pop() error {
 	}
 	// Pop the bit by setting it to the default
 	// Update the view to the new tree containing this item.
-	tv.BackingNode = setLast(BoolView(false).BackingFromBitfieldBase(r, subIndex))
+	bNode, err := setLast(BoolView(false).BackingFromBitfieldBase(r, subIndex))
+	if err != nil {
+		return err
+	}
 	// And update the list length
-	setLength, err := tv.SubtreeView.BackingNode.Setter(RightGindex)
+	setLength, err := bNode.Setter(RightGindex, false)
 	if err != nil {
 		return err
 	}
 	newLength := &Root{}
 	binary.LittleEndian.PutUint64(newLength[:8], ll-1)
-	tv.BackingNode = setLength(newLength)
-	return tv.PropagateChange(tv)
+	bNode, err = setLength(newLength)
+	if err != nil {
+		return err
+	}
+	return tv.SetBacking(bNode)
 }
 
 func (tv *BitListView) CheckIndex(i uint64) error {
@@ -143,7 +186,7 @@ func (tv *BitListView) CheckIndex(i uint64) error {
 
 func (tv *BitListView) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {
 	bottomIndex, subIndex = i>>8, uint8(i)
-	v, err := tv.SubtreeView.Get(bottomIndex)
+	v, err := tv.SubtreeView.GetNode(bottomIndex)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -173,10 +216,7 @@ func (tv *BitListView) Set(i uint64, v BoolView) error {
 	if err != nil {
 		return err
 	}
-	if err := tv.SubtreeView.Set(bottomIndex, v.BackingFromBitfieldBase(r, subIndex)); err != nil {
-		return err
-	}
-	return tv.PropagateChange(tv)
+	return tv.SubtreeView.SetNode(bottomIndex, v.BackingFromBitfieldBase(r, subIndex))
 }
 
 func (tv *BitListView) Length() (uint64, error) {
@@ -194,3 +234,57 @@ func (tv *BitListView) Length() (uint64, error) {
 	}
 	return ll, nil
 }
+
+func (tv *BitListView) Copy() (View, error) {
+	tvCopy := *tv
+	tvCopy.Hook = nil
+	return &tvCopy, nil
+}
+
+func (tv *BitListView) Iter() BitIter {
+	length, err := tv.Length()
+	if err != nil {
+		return ErrBitIter{err}
+	}
+	i := uint64(0)
+	return BitIterFn(func() (elem bool, ok bool, err error) {
+		if i < length {
+			var item BoolView
+			item, err = tv.Get(i)
+			elem = bool(item)
+			ok = true
+			i += 1
+			return
+		} else {
+			return false, false, nil
+		}
+	})
+}
+
+func (tv *BitListView) ReadonlyIter() BitIter {
+	length, err := tv.Length()
+	if err != nil {
+		return ErrBitIter{err}
+	}
+	// get contents subtree, to traverse with the stack
+	node, err := tv.BackingNode.Left()
+	if err != nil {
+		return ErrBitIter{err}
+	}
+	// ignore length mixin in stack
+	return bitReadonlyIter(node, length, tv.depth - 1)
+}
+
+func (tv *BitListView) ValueByteLength() (uint64, error) {
+	length, err := tv.Length()
+	if err != nil {
+		return 0, err
+	}
+	return (length + 7 + 1) / 8, nil
+}
+
+func (tv *BitListView) Serialize(w io.Writer) error {
+	// TODO
+	return nil
+}
+

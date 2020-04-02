@@ -23,10 +23,10 @@ type Gindex interface {
 	Depth() uint32
 	// Iterate over the bits of the gindex
 	// The depth is excl. the "root" bit
-	BitIter() (iter BitIter, depth uint32)
+	BitIter() (iter GindexBitIter, depth uint32)
 }
 
-type BitIter interface {
+type GindexBitIter interface {
 	// Next: move forward through gindex.
 	// It returns bools for each bit after the "root" bit.
 	// If "ok" is false, the bit cannot be read, none are remaining.
@@ -81,7 +81,7 @@ func (v Gindex64) Depth() uint32 {
 	return uint32(BitIndex(uint64(v)))
 }
 
-func (v Gindex64) BitIter() (iter BitIter, depth uint32) {
+func (v Gindex64) BitIter() (iter GindexBitIter, depth uint32) {
 	d := BitIndex(uint64(v))
 	return &Gindex64BitIter{
 		Marker: 1 << d,

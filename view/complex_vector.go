@@ -95,10 +95,6 @@ type ComplexVectorView struct {
 	*ComplexVectorTypeDef
 }
 
-func (tv *ComplexVectorView) HashTreeRoot(h HashFn) Root {
-	return tv.BackingNode.MerkleRoot(h)
-}
-
 func (tv *ComplexVectorView) Get(i uint64) (View, error) {
 	if i >= tv.ComplexVectorTypeDef.VectorLength {
 		return nil, fmt.Errorf("cannot get item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.VectorLength)
@@ -148,7 +144,6 @@ func (tv *ComplexVectorView) Iter() ElemIter {
 }
 
 func (tv *ComplexVectorView) ReadonlyIter() ElemIter {
-	// ignore length mixin in stack
 	return elemReadonlyIter(tv.BackingNode, tv.VectorLength, tv.depth, tv.ElemType)
 }
 
