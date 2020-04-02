@@ -18,7 +18,7 @@ func ComplexListType(name string, elemType TypeDef, limit uint64) *ComplexListTy
 	if elemType.IsFixedByteLength() {
 		maxSize = limit * elemType.TypeByteLength()
 	} else {
-		maxSize = limit * elemType.MaxByteLength()
+		maxSize = limit * (elemType.MaxByteLength() + OffsetByteLength)
 	}
 	return &ComplexListTypeDef{
 		ElemType:  elemType,
