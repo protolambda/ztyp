@@ -15,27 +15,31 @@ type FieldDef struct {
 type ContainerTypeDef struct {
 	ComplexTypeBase
 	Fields []FieldDef
+	OffsetsCount uint64
+	FixedPartSize uint64
 }
 
 func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 	minSize := uint64(0)
 	maxSize := uint64(0)
-	size := uint64(0)
-	isFixedSize := true
+	fixedPart := uint64(0)
+	offsetsCount := uint64(0)
 	for _, f := range fields {
 		if f.Type.IsFixedByteLength() {
-			size += f.Type.TypeByteLength()
+			fixedPart += f.Type.TypeByteLength()
 		} else {
-			isFixedSize = false
-			minSize += f.Type.MinByteLength()
-			maxSize += f.Type.MaxByteLength()
+			offsetsCount += 1
+			fixedPart += OffsetByteLength
+			minSize += OffsetByteLength + f.Type.MinByteLength()
+			maxSize += OffsetByteLength + f.Type.MaxByteLength()
 		}
 	}
+	size := uint64(0)
+	isFixedSize := offsetsCount == 0
 	if isFixedSize {
-		minSize = size
-		maxSize = size
-	} else {
-		size = 0
+		minSize = fixedPart
+		maxSize = fixedPart
+		size = fixedPart
 	}
 	return &ContainerTypeDef{
 		ComplexTypeBase: ComplexTypeBase{
@@ -46,7 +50,23 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 			IsFixedSize: isFixedSize,
 		},
 		Fields: fields,
+		OffsetsCount: offsetsCount,
+		FixedPartSize: fixedPart,
 	}
+}
+
+func (td *ContainerTypeDef) FromFields(v... View) (*ContainerView, error) {
+	if len(td.Fields) != len(v) {
+		return nil, fmt.Errorf("expected %d fields, got %d", len(td.Fields), len(v))
+	}
+	nodes := make([]Node, len(td.Fields), len(td.Fields))
+	for i, el := range v {
+		nodes[i] = el.Backing()
+	}
+	depth := CoverDepth(td.FieldCount())
+	rootNode, _ := SubtreeFillToContents(nodes, depth)
+	conView, _ := td.ViewFromBacking(rootNode, nil)
+	return conView.(*ContainerView), nil
 }
 
 func (td *ContainerTypeDef) DefaultNode() Node {
@@ -91,9 +111,57 @@ func (td *ContainerTypeDef) FieldCount() uint64 {
 	return uint64(len(td.Fields))
 }
 
+type offsetField struct {
+	index int
+	offset uint32
+}
+
 func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	fields := make([]View, len(td.Fields), len(td.Fields))
+	offsets := make([]offsetField, td.OffsetsCount, td.OffsetsCount)
+	prevOffset := uint32(td.FixedPartSize)
+	if err := td.checkScope(scope); err != nil {
+		return nil, err
+	}
+	// Deserialize the fixed part: fixed-size fields and offsets to dynamic fields
+	for i, f := range td.Fields {
+		if f.Type.IsFixedByteLength() {
+			// No need to redefine the scope for fixed-length SSZ objects.
+			v, err := f.Type.Deserialize(r, scope)
+			if err != nil {
+				return nil, err
+			}
+			fields[i] = v
+		} else {
+			offset, err := ReadOffset(r)
+			if err != nil {
+				return nil, err
+			}
+			if offset < prevOffset {
+				return nil, fmt.Errorf("offset %d of field %d is smaller than prev offset %d", offset, i, prevOffset)
+			}
+			if uint64(offset) > scope {
+				return nil, fmt.Errorf("offset %d of field %d is too big for scope %d", offset, i, scope)
+			}
+			offsets = append(offsets, offsetField{index: i, offset: offset})
+		}
+	}
+	// Deserialize the dynamic part: for each offset, get the size and deserialize the element
+	for i, item := range offsets {
+		var size uint32
+		if i + 1 == len(offsets) {
+			size = uint32(scope) - item.offset
+		} else {
+			size = offsets[i+1].offset - item.offset
+		}
+		v, err := td.Fields[item.index].Type.Deserialize(r, uint64(size))
+		if err != nil {
+			return nil, err
+		}
+		fields[item.index] = v
+	}
+	// Collected all elements, now construct the tree in one go
+	return td.FromFields(fields...)
 }
 
 func (td *ContainerTypeDef) String() string {
@@ -126,13 +194,90 @@ func (tv *ContainerView) ValueByteLength() (uint64, error) {
 	if tv.IsFixedSize {
 		return tv.Size, nil
 	}
-	// TODO
-	return 0, nil
+	out := uint64(0)
+	for i, f := range tv.Fields {
+		if f.Type.IsFixedByteLength() {
+			out += f.Type.TypeByteLength()
+		} else {
+			v, err := tv.Get(uint64(i))
+			if err != nil {
+				return 0, err
+			}
+			vSize, err := v.ValueByteLength()
+			if err != nil {
+				return 0, err
+			}
+			out += vSize + OffsetByteLength
+		}
+	}
+	return out, nil
 }
 
 func (tv *ContainerView) Serialize(w io.Writer) error {
-	// TODO
+	fieldIter := tv.ReadonlyIter()
+	var	dynFields []View
+	if !tv.IsFixedSize {
+		dynFields = make([]View, 0, tv.OffsetsCount)
+	}
+	// the previous offset, to calculate a new offset from, starting after the fixed data.
+	prevOffset := tv.FixedPartSize
+
+	// span of the previous var-size element
+	prevSize := uint64(0)
+	for {
+		f, ok, err := fieldIter.Next()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		fType := f.Type()
+		if fType.IsFixedByteLength() {
+			if err := f.Serialize(w); err != nil {
+				return err
+			}
+		} else {
+			fieldValSize, err := f.ValueByteLength()
+			if err != nil {
+				return err
+			}
+			prevOffset, err = WriteOffset(w, prevOffset, prevSize)
+			if err != nil {
+				return err
+			}
+			prevSize = fieldValSize
+			// Queue the actual element to be encoded after the fixed part of the container is encoded.
+			dynFields = append(dynFields, f)
+		}
+	}
+	if !tv.IsFixedSize {
+		for _, v := range dynFields {
+			if err := v.Serialize(w); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
+}
+
+func (tv *ContainerView) Iter() ElemIter {
+	i := uint64(0)
+	fieldCount := tv.FieldCount()
+	return ElemIterFn(func() (elem View, ok bool, err error) {
+		if i < fieldCount {
+			elem, err = tv.Get(i)
+			ok = true
+			i += 1
+			return
+		} else {
+			return nil, false, nil
+		}
+	})
+}
+
+func (tv *ContainerView) ReadonlyIter() ElemIter {
+	return fieldReadonlyIter(tv.BackingNode, tv.depth, tv.Fields)
 }
 
 func (tv *ContainerView) Get(i uint64) (View, error) {

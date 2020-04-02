@@ -26,7 +26,7 @@ type BitIter interface {
 	Next() (elem bool, ok bool, err error)
 }
 
-func bitReadonlyIter(node Node, endIndex uint64, depth uint8) BitIter {
+func bitReadonlyIter(node Node, length uint64, depth uint8) BitIter {
 	stack := make([]Node, depth, depth)
 
 	i := uint64(0)
@@ -36,7 +36,7 @@ func bitReadonlyIter(node Node, endIndex uint64, depth uint8) BitIter {
 	rootIndex := uint64(0)
 	return BitIterFn(func() (elem bool, ok bool, err error) {
 		// done yet?
-		if i > endIndex {
+		if i >= length {
 			return false, false, nil
 		}
 		// in the middle of a node currently? finish that first

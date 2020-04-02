@@ -1,5 +1,11 @@
 package view
 
+import (
+	"encoding/binary"
+	"fmt"
+	"io"
+)
+
 const OffsetByteLength = 4
 
 type ComplexTypeBase struct {
@@ -28,6 +34,16 @@ func (td *ComplexTypeBase) MinByteLength() uint64 {
 
 func (td *ComplexTypeBase) MaxByteLength() uint64 {
 	return td.MaxSize
+}
+
+func (td *ComplexTypeBase) checkScope(scope uint64) error {
+	if scope < td.MinSize {
+		return fmt.Errorf("scope %d is too small, need at least %d bytes", scope, td.MinSize)
+	}
+	if scope > td.MaxSize {
+		return fmt.Errorf("scope %d is too big, need %d or less bytes", scope, td.MaxSize)
+	}
+	return nil
 }
 
 type VectorTypeDef interface {
@@ -76,4 +92,27 @@ type ElemIter interface {
 	// Next gets the next element, ok is true if it actually exists.
 	// An error may occur if data is missing or corrupt.
 	Next() (elem View, ok bool, err error)
+}
+
+func WriteOffset(w io.Writer, prevOffset uint64, elemLen uint64) (offset uint64, err error) {
+	if prevOffset >= (uint64(1) << 32) {
+		panic("cannot write offset with invalid previous offset")
+	}
+	if elemLen >= (uint64(1) << 32) {
+		panic("cannot write offset with invalid element size")
+	}
+	offset = prevOffset + elemLen
+	if offset >= (uint64(1) << 32) {
+		panic("offset too large, not uint32")
+	}
+	tmp := make([]byte, 4, 4)
+	binary.LittleEndian.PutUint32(tmp, uint32(offset))
+	_, err = w.Write(tmp)
+	return
+}
+
+func ReadOffset(r io.Reader) (uint32, error) {
+	tmp := make([]byte, 4, 4)
+	_, err := r.Read(tmp)
+	return binary.LittleEndian.Uint32(tmp), err
 }

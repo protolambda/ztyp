@@ -31,6 +31,8 @@ func (td UintMeta) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
+var UnsupportedUintType = errors.New("unsupported uint type")
+
 func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
 	v, ok := node.(*Root)
 	if !ok {
@@ -46,8 +48,7 @@ func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
 	case Uint64Type:
 		return Uint64View(binary.LittleEndian.Uint64(v[:8])), nil
 	default:
-		// unsupported uint type
-		return nil, fmt.Errorf("uint%d viewing is not supported", td*8)
+		return nil, UnsupportedUintType
 	}
 }
 
@@ -65,8 +66,7 @@ func (td UintMeta) SubViewFromBacking(v *Root, i uint8) (BasicView, error) {
 	case Uint64Type:
 		return Uint64View(binary.LittleEndian.Uint64(v[8*i : 8*i+8])), nil
 	default:
-		// unsupported backing
-		return nil, fmt.Errorf("uint%d subviewing is not supported", td)
+		return nil, UnsupportedUintType
 	}
 }
 
@@ -87,8 +87,24 @@ func (td UintMeta) MaxByteLength() uint64 {
 }
 
 func (td UintMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	// TODO: maybe check scope?
+	tmp := make([]byte, td, td)
+	_, err := r.Read(tmp)
+	if err != nil {
+		return nil, err
+	}
+	switch td {
+	case Uint8Type:
+		return Uint8View(tmp[0]), nil
+	case Uint16Type:
+		return Uint16View(binary.LittleEndian.Uint16(tmp)), nil
+	case Uint32Type:
+		return Uint32View(binary.LittleEndian.Uint32(tmp)), nil
+	case Uint64Type:
+		return Uint64View(binary.LittleEndian.Uint64(tmp)), nil
+	default:
+		return nil, UnsupportedUintType
+	}
 }
 
 func (td UintMeta) Name() string {
