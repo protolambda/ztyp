@@ -33,6 +33,21 @@ func ComplexListType(name string, elemType TypeDef, limit uint64) *ComplexListTy
 	}
 }
 
+func (td *ComplexListTypeDef) FromElements(v... View) (*ComplexVectorView, error) {
+	if uint64(len(v)) > td.ListLimit {
+		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
+	}
+	nodes := make([]Node, len(v), len(v))
+	for i, el := range v {
+		nodes[i] = el.Backing()
+	}
+	depth := CoverDepth(td.ListLimit)
+	contentsRootNode, _ := SubtreeFillToContents(nodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
+	vecView, _ := td.ViewFromBacking(rootNode, nil)
+	return vecView.(*ComplexVectorView), nil
+}
+
 func (td *ComplexListTypeDef) ElementType() TypeDef {
 	return td.ElemType
 }
@@ -74,8 +89,70 @@ func (td *ComplexListTypeDef) New(hook BackingHook) *ComplexListView {
 }
 
 func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	if scope == 0 {
+		return td.Default(nil), nil
+	}
+	if td.ElemType.IsFixedByteLength() {
+		elemSize := td.ElemType.TypeByteLength()
+		length := scope / elemSize
+		if length > td.ListLimit {
+			return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
+		}
+		if expected := length*elemSize; expected != scope {
+			return nil, fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
+		}
+		elements := make([]View, length, length)
+		for i := uint64(0); i < length; i++ {
+			el, err := td.ElemType.Deserialize(r, elemSize)
+			if err != nil {
+				return nil, err
+			}
+			elements[i] = el
+		}
+		return td.FromElements(elements...)
+	} else {
+		firstOffset, err := ReadOffset(r)
+		if err != nil {
+			return nil, err
+		}
+		if firstOffset % OffsetByteLength != 0 {
+			return nil, fmt.Errorf("first offset %d does not align to offset length %d", firstOffset, OffsetByteLength)
+		}
+		length := uint64(firstOffset) / OffsetByteLength
+		if length > td.ListLimit {
+			return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
+		}
+		offsets := make([]uint32, length, length)
+		offsets[0] = firstOffset
+		prevOffset := firstOffset
+		for i := uint64(1); i < length; i++ {
+			offset, err := ReadOffset(r)
+			if err != nil {
+				return nil, err
+			}
+			if offset < prevOffset {
+				return nil, fmt.Errorf("offset %d for element %d is smaller than previous offset %d", offset, i, prevOffset)
+			}
+			offsets[i] = offset
+			prevOffset = offset
+		}
+		elements := make([]View, length, length)
+		lastIndex := uint32(len(elements) - 1)
+		for i := uint32(0); i < lastIndex; i++ {
+			size := offsets[i+1] - offsets[i]
+			el, err := td.ElemType.Deserialize(r, uint64(size))
+			if err != nil {
+				return nil, err
+			}
+			elements[i] = el
+		}
+		el, err := td.ElemType.Deserialize(r, scope - uint64(offsets[lastIndex]))
+		if err != nil {
+			return nil, err
+		}
+		elements[lastIndex] = el
+		return td.FromElements(elements...)
+	}
 }
 
 func (td *ComplexListTypeDef) String() string {
@@ -283,7 +360,15 @@ func (tv *ComplexListView) ValueByteLength() (uint64, error) {
 }
 
 func (tv *ComplexListView) Serialize(w io.Writer) error {
-	// TODO
-	return nil
+	iter := tv.ReadonlyIter()
+	if tv.ElemType.IsFixedByteLength() {
+		return serializeComplexFixElemSeries(iter, w)
+	} else {
+		length, err := tv.Length()
+		if err != nil {
+			return err
+		}
+		return serializeComplexVarElemSeries(length, iter, w)
+	}
 }
 

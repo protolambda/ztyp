@@ -40,7 +40,7 @@ func ComplexVectorType(name string, elemType TypeDef, length uint64) *ComplexVec
 
 func (td *ComplexVectorTypeDef) FromElements(v... View) (*ComplexVectorView, error) {
 	if td.VectorLength != uint64(len(v)) {
-		return nil, fmt.Errorf("expected %d fields, got %d", td.VectorLength, len(v))
+		return nil, fmt.Errorf("expected %d elements, got %d", td.VectorLength, len(v))
 	}
 	nodes := make([]Node, td.VectorLength, td.VectorLength)
 	for i, el := range v {
@@ -96,11 +96,10 @@ func (td *ComplexVectorTypeDef) New(hook BackingHook) *ComplexVectorView {
 }
 
 func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
-	if td.ElemType.IsFixedByteLength() {
+	if td.IsFixedSize {
 		elemSize := td.ElemType.TypeByteLength()
-		length := scope / elemSize
-		if length*elemSize != scope {
-			return nil, fmt.Errorf("expected %d elements of %d bytes, but scope does not divide it and is %d bytes", length, elemSize, scope)
+		if td.Size != scope {
+			return nil, fmt.Errorf("expected size %d does not match scope %d", td.Size, scope)
 		}
 		elements := make([]View, td.VectorLength, td.VectorLength)
 		for i := uint64(0); i < td.VectorLength; i++ {
@@ -120,9 +119,10 @@ func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, er
 				return nil, err
 			}
 			if offset < prevOffset {
-				offsets[i] = offset
-				prevOffset = offset
+				return nil, fmt.Errorf("offset %d for element %d is smaller than previous offset %d", offset, i, prevOffset)
 			}
+			offsets[i] = offset
+			prevOffset = offset
 		}
 		elements := make([]View, td.VectorLength, td.VectorLength)
 		lastIndex := uint32(len(elements) - 1)
@@ -215,54 +215,8 @@ func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
 func (tv *ComplexVectorView) Serialize(w io.Writer) error {
 	iter := tv.ReadonlyIter()
 	if tv.IsFixedSize {
-		for {
-			el, ok, err := iter.Next()
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			if err := el.Serialize(w); err != nil {
-				return err
-			}
-		}
+		return serializeComplexFixElemSeries(iter, w)
 	} else {
-		elements := make([]View, tv.VectorLength, tv.VectorLength)
-
-		// the previous offset, to calculate a new offset from, starting after the fixed data.
-		prevOffset := tv.VectorLength * OffsetByteLength
-
-		// span of the previous var-size element
-		prevSize := uint64(0)
-		// write all offsets, remember the elements
-		for {
-			el, ok, err := iter.Next()
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			elValSize, err := el.ValueByteLength()
-			if err != nil {
-				return err
-			}
-			prevOffset, err = WriteOffset(w, prevOffset, prevSize)
-			if err != nil {
-				return err
-			}
-			prevSize = elValSize
-			// Queue the actual element to be encoded after the fixed part of the container is encoded.
-			elements = append(elements, el)
-		}
-		// now write all elements
-		for _, v := range elements {
-			if err := v.Serialize(w); err != nil {
-				return err
-			}
-		}
+		return serializeComplexVarElemSeries(tv.VectorLength, iter, w)
 	}
-	return nil
 }
-

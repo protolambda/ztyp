@@ -116,3 +116,57 @@ func ReadOffset(r io.Reader) (uint32, error) {
 	_, err := r.Read(tmp)
 	return binary.LittleEndian.Uint32(tmp), err
 }
+
+func serializeComplexFixElemSeries(iter ElemIter, w io.Writer) error {
+	for {
+		el, ok, err := iter.Next()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		if err := el.Serialize(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func serializeComplexVarElemSeries(length uint64, iter ElemIter, w io.Writer) error {
+	elements := make([]View, length, length)
+
+	// the previous offset, to calculate a new offset from, starting after the fixed data.
+	prevOffset := length * OffsetByteLength
+
+	// span of the previous var-size element
+	prevSize := uint64(0)
+	// write all offsets, remember the elements
+	for {
+		el, ok, err := iter.Next()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		elValSize, err := el.ValueByteLength()
+		if err != nil {
+			return err
+		}
+		prevOffset, err = WriteOffset(w, prevOffset, prevSize)
+		if err != nil {
+			return err
+		}
+		prevSize = elValSize
+		// Queue the actual element to be encoded after the fixed part of the container is encoded.
+		elements = append(elements, el)
+	}
+	// now write all elements
+	for _, v := range elements {
+		if err := v.Serialize(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
