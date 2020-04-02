@@ -49,7 +49,7 @@ func (td SmallByteVecMeta) MaxByteLength() uint64 {
 	return uint64(td)
 }
 
-func (td SmallByteVecMeta) Deserialize(r io.Reader, scope uint64) error {
+func (td SmallByteVecMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }

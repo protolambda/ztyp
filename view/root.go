@@ -28,7 +28,7 @@ func (m RootMeta) MaxByteLength() uint64 {
 	return 32
 }
 
-func (m RootMeta) Deserialize(r io.Reader, scope uint64) error {
+func (m RootMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }

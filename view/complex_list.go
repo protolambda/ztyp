@@ -73,7 +73,7 @@ func (td *ComplexListTypeDef) New(hook BackingHook) *ComplexListView {
 	return v.(*ComplexListView)
 }
 
-func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) error {
+func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }

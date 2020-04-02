@@ -64,7 +64,7 @@ func (td *BitVectorTypeDef) New(hook BackingHook) *BitVectorView {
 	return v.(*BitVectorView)
 }
 
-func (td *BitVectorTypeDef) Deserialize(r io.Reader, scope uint64) error {
+func (td *BitVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }

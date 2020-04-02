@@ -91,7 +91,7 @@ func (td *ContainerTypeDef) FieldCount() uint64 {
 	return uint64(len(td.Fields))
 }
 
-func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) error {
+func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }

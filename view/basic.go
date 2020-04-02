@@ -86,7 +86,7 @@ func (td UintMeta) MaxByteLength() uint64 {
 	return uint64(td)
 }
 
-func (td UintMeta) Deserialize(r io.Reader, scope uint64) error {
+func (td UintMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }
@@ -343,7 +343,7 @@ func (td BoolMeta) MaxByteLength() uint64 {
 	return 1
 }
 
-func (td BoolMeta) Deserialize(r io.Reader, scope uint64) error {
+func (td BoolMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }

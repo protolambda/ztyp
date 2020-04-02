@@ -81,7 +81,7 @@ func (td *ComplexVectorTypeDef) New(hook BackingHook) *ComplexVectorView {
 	return v.(*ComplexVectorView)
 }
 
-func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) error {
+func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }

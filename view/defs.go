@@ -42,7 +42,7 @@ type TypeDef interface {
 	TypeByteLength() uint64
 	MinByteLength() uint64
 	MaxByteLength() uint64
-	Deserialize(r io.Reader, scope uint64) error
+	Deserialize(r io.Reader, scope uint64) (View, error)
 	Name() string
 	String() string
 	// TODO: could add navigation by key/index into subtypes

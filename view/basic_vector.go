@@ -80,7 +80,7 @@ func (td *BasicVectorTypeDef) New(hook BackingHook) *BasicVectorView {
 	return v.(*BasicVectorView)
 }
 
-func (td *BasicVectorTypeDef) Deserialize(r io.Reader, scope uint64) error {
+func (td *BasicVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	// TODO
 	return nil
 }
