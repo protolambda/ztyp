@@ -206,9 +206,25 @@ func (tv *ComplexVectorView) ReadonlyIter() ElemIter {
 func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
 	if tv.IsFixedSize {
 		return tv.Size, nil
+	} else {
+		size := tv.VectorLength * OffsetByteLength
+		iter := tv.ReadonlyIter()
+		for {
+			elem, ok, err := iter.Next()
+			if err != nil {
+				return 0, err
+			}
+			if !ok {
+				break
+			}
+			valSize, err := elem.ValueByteLength()
+			if err != nil {
+				return 0, err
+			}
+			size += valSize
+		}
+		return size, nil
 	}
-	// TODO
-	return 0, nil
 }
 
 func (tv *ComplexVectorView) Serialize(w io.Writer) error {
