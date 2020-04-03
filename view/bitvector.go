@@ -65,8 +65,27 @@ func (td *BitVectorTypeDef) New(hook BackingHook) *BitVectorView {
 }
 
 func (td *BitVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	if td.Size != scope {
+		return nil, fmt.Errorf("expected size %d does not match scope %d", td.Size, scope)
+	}
+	contents := make([]byte, scope, scope)
+	if _, err := r.Read(contents); err != nil {
+		return nil, err
+	}
+	if scope != 0 && td.BitLength & 7 != 0 {
+		last := contents[scope-1]
+		if last & byte((uint16(1) << (td.BitLength & 7)) - 1) != last {
+			return nil, fmt.Errorf("last bitvector byte %d has out of bounds bits set", last)
+		}
+	}
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLength())
+	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	listView, _ := td.ViewFromBacking(rootNode, nil)
+	return listView.(*BasicVectorView), nil
 }
 
 func (td *BitVectorTypeDef) String() string {
@@ -163,6 +182,10 @@ func (tv *BitVectorView) ValueByteLength() (uint64, error) {
 }
 
 func (tv *BitVectorView) Serialize(w io.Writer) error {
-	// TODO
-	return nil
+	contents := make([]byte, tv.Size, tv.Size)
+	if err := SubtreeIntoBytes(tv.BackingNode, tv.depth, tv.Size, contents); err != nil {
+		return err
+	}
+	_, err := w.Write(contents)
+	return err
 }

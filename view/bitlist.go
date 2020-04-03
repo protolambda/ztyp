@@ -65,8 +65,59 @@ func (td *BitListTypeDef) New(hook BackingHook) *BitListView {
 }
 
 func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
-	// TODO
-	return nil
+	if scope == 0 {
+		return td.New(nil), nil
+	}
+	if scope > td.Size {
+		return nil, fmt.Errorf("bitlist has too many bytes, bitlimit %d (byte size %d) but got scope %d", td.BitLimit, td.Size, scope)
+	}
+	contents := make([]byte, scope, scope)
+	if _, err := r.Read(contents); err != nil {
+		return nil, err
+	}
+	lastByte := contents[scope-1]
+	if lastByte == 0 {
+		return nil, fmt.Errorf("bitlist last byte must not be zero, delimit bit is missing")
+	}
+	delimitBitIndex := BitIndex(lastByte)
+	if bitLen := ((scope - 1) << 3) + delimitBitIndex; bitLen > td.BitLimit {
+		return nil, fmt.Errorf("bitlist has too many bits set in last byte, got bit length %d, limit is %d", bitLen, td.BitLimit)
+	}
+	// Remove delimit bit
+	if delimitBitIndex == 0 {
+		// remove complete last byte, it only has a delimit bit
+		contents = contents[:scope-1]
+	} else {
+		// remove delimit bit from last byte, but leave other bits
+		contents[scope-1] = lastByte ^ (1 << delimitBitIndex)
+	}
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(length).Backing()}
+	listView, _ := td.ViewFromBacking(rootNode, nil)
+	return listView.(*BasicListView), nil
+}
+
+// Get index of left-most 1 bit.
+// 0 (incl.) to 8 (excl.)
+func BitIndex(v byte) (out uint64) {
+	if v&0b11110000 != 0 { // 11110000
+		out |= 4
+		v >>= 4
+	}
+	if v&0b00001100 != 0 { // 00001100
+		out |= 2
+		v >>= 2
+	}
+	if v&0b00000010 != 0 { // 00000010
+		out |= 1
+		v >>= 1
+	}
+	return
 }
 
 func (td *BitListTypeDef) String() string {
@@ -284,7 +335,23 @@ func (tv *BitListView) ValueByteLength() (uint64, error) {
 }
 
 func (tv *BitListView) Serialize(w io.Writer) error {
-	// TODO
-	return nil
+	contentsAnchor, err := tv.BackingNode.Getter(LeftGindex)
+	if err != nil {
+		return err
+	}
+	bitLength, err := tv.Length()
+	if err != nil {
+		return err
+	}
+	// round up, but also do not forget the delimit bit
+	byteLength := (bitLength + 7 + 1) / 8
+	contents := make([]byte, byteLength, byteLength)
+	// one less depth, ignore length mix-in. Iteration length without bitlist delimit bit.
+	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, (bitLength + 7) / 8, contents); err != nil {
+		return err
+	}
+	// Add delimit bit
+	contents[byteLength-1] |= 1 << (bitLength & 7)
+	_, err = w.Write(contents)
+	return err
 }
-

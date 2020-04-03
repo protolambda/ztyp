@@ -35,7 +35,7 @@ func (stv *SubtreeView) SetNode(i uint64, node Node) error {
 }
 
 // Copy over the roots at the bottom of the subtree from left to right into dest (until dest is full)
-func SubtreeIntoBytes(anchor Node, depth uint8, dest []byte) error {
+func SubtreeIntoBytes(anchor Node, depth uint8, length uint64, dest []byte) error {
 	copyChunk := func(node Node, dest []byte) error {
 		r, ok := node.(*Root)
 		if !ok {
@@ -45,7 +45,6 @@ func SubtreeIntoBytes(anchor Node, depth uint8, dest []byte) error {
 		copy(dest, r[:])
 		return nil
 	}
-	length := (uint64(len(dest)) + 31) >> 5
 	iter := nodeReadonlyIter(anchor, length, depth)
 	for i := uint64(0); i < length; i++ {
 		node, ok, err := iter.Next()

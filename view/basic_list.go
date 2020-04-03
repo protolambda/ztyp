@@ -349,7 +349,7 @@ func (tv *BasicListView) Serialize(w io.Writer) error {
 	}
 	contents := make([]byte, length, length)
 	// one less depth, ignore length mix-in
-	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, contents); err != nil {
+	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, length, contents); err != nil {
 		return err
 	}
 	_, err = w.Write(contents)
