@@ -14,6 +14,7 @@ type FieldDef struct {
 
 type ContainerTypeDef struct {
 	ComplexTypeBase
+	ContainerName string
 	Fields []FieldDef
 	OffsetsCount uint64
 	FixedPartSize uint64
@@ -43,12 +44,12 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 	}
 	return &ContainerTypeDef{
 		ComplexTypeBase: ComplexTypeBase{
-			TypeName: name,
 			MinSize: minSize,
 			MaxSize: maxSize,
 			Size: size,
 			IsFixedSize: isFixedSize,
 		},
+		ContainerName: name,
 		Fields: fields,
 		OffsetsCount: offsetsCount,
 		FixedPartSize: fixedPart,
@@ -165,14 +166,18 @@ func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 }
 
 func (td *ContainerTypeDef) String() string {
+	return td.ContainerName
+}
+
+func (td *ContainerTypeDef) TypeRepr() string {
 	var buf bytes.Buffer
-	buf.WriteString(td.TypeName)
+	buf.WriteString(td.ContainerName)
 	buf.WriteString("(Container):")
 	for _, f := range td.Fields {
 		buf.WriteString("    ")
 		buf.WriteString(f.Name)
 		buf.WriteString(": ")
-		buf.WriteString(f.Type.Name())
+		buf.WriteString(f.Type.String())
 		buf.WriteRune('\n')
 	}
 	return buf.String()

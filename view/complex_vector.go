@@ -12,7 +12,7 @@ type ComplexVectorTypeDef struct {
 	ComplexTypeBase
 }
 
-func ComplexVectorType(name string, elemType TypeDef, length uint64) *ComplexVectorTypeDef {
+func ComplexVectorType(elemType TypeDef, length uint64) *ComplexVectorTypeDef {
 	minSize := uint64(0)
 	maxSize := uint64(0)
 	size := uint64(0)
@@ -29,7 +29,6 @@ func ComplexVectorType(name string, elemType TypeDef, length uint64) *ComplexVec
 		ElemType:     elemType,
 		VectorLength: length,
 		ComplexTypeBase: ComplexTypeBase{
-			TypeName: name,
 			MinSize: minSize,
 			MaxSize: maxSize,
 			Size: size,
@@ -144,7 +143,7 @@ func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, er
 }
 
 func (td *ComplexVectorTypeDef) String() string {
-	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.Name(), td.VectorLength)
+	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.String(), td.VectorLength)
 }
 
 type ComplexVectorView struct {

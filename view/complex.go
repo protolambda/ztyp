@@ -10,15 +10,10 @@ import (
 const OffsetByteLength = 4
 
 type ComplexTypeBase struct {
-	TypeName string
 	MinSize uint64
 	MaxSize uint64
 	Size uint64
 	IsFixedSize bool
-}
-
-func (td *ComplexTypeBase) Name() string {
-	return td.TypeName
 }
 
 func (td *ComplexTypeBase) IsFixedByteLength() bool {
@@ -48,30 +43,32 @@ func (td *ComplexTypeBase) checkScope(scope uint64) error {
 }
 
 type VectorTypeDef interface {
+	TypeDef
 	ElementType() TypeDef
 	Length() uint64
 }
 
-func VectorType(name string, elemType TypeDef, length uint64) VectorTypeDef {
+func VectorType(elemType TypeDef, length uint64) VectorTypeDef {
 	basicElemType, ok := elemType.(BasicTypeDef)
 	if ok {
-		return BasicVectorType(name, basicElemType, length)
+		return BasicVectorType(basicElemType, length)
 	} else {
-		return ComplexVectorType(name, elemType, length)
+		return ComplexVectorType(elemType, length)
 	}
 }
 
 type ListTypeDef interface {
+	TypeDef
 	ElementType() TypeDef
 	Limit() uint64
 }
 
-func ListType(name string, elemType TypeDef, limit uint64) ListTypeDef {
+func ListType(elemType TypeDef, limit uint64) ListTypeDef {
 	basicElemType, ok := elemType.(BasicTypeDef)
 	if ok {
-		return BasicListType(name, basicElemType, limit)
+		return BasicListType(basicElemType, limit)
 	} else {
-		return ComplexListType(name, elemType, limit)
+		return ComplexListType(elemType, limit)
 	}
 }
 

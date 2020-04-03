@@ -58,12 +58,8 @@ func (td SmallByteVecMeta) Deserialize(r io.Reader, scope uint64) (View, error) 
 	return v, err
 }
 
-func (td SmallByteVecMeta) Name() string {
-	return fmt.Sprintf("Vector[byte, %d]", td)
-}
-
 func (td SmallByteVecMeta) String() string {
-	return td.Name()
+	return fmt.Sprintf("Vector[byte, %d]", td)
 }
 
 type SmallByteVecView []byte

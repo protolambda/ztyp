@@ -13,12 +13,11 @@ type BasicListTypeDef struct {
 	ComplexTypeBase
 }
 
-func BasicListType(name string, elemType BasicTypeDef, limit uint64) *BasicListTypeDef {
+func BasicListType(elemType BasicTypeDef, limit uint64) *BasicListTypeDef {
 	return &BasicListTypeDef{
 		ElemType:  elemType,
 		ListLimit: limit,
 		ComplexTypeBase: ComplexTypeBase{
-			TypeName:    name,
 			MinSize:     0,
 			MaxSize:     limit * elemType.TypeByteLength(),
 			Size:        0,
@@ -121,7 +120,7 @@ func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 }
 
 func (td *BasicListTypeDef) String() string {
-	return fmt.Sprintf("List[%s, %d]", td.ElemType.Name(), td.ListLimit)
+	return fmt.Sprintf("List[%s, %d]", td.ElemType.String(), td.ListLimit)
 }
 
 type BasicListView struct {

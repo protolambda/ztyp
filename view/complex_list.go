@@ -13,7 +13,7 @@ type ComplexListTypeDef struct {
 	ComplexTypeBase
 }
 
-func ComplexListType(name string, elemType TypeDef, limit uint64) *ComplexListTypeDef {
+func ComplexListType(elemType TypeDef, limit uint64) *ComplexListTypeDef {
 	maxSize := uint64(0)
 	if elemType.IsFixedByteLength() {
 		maxSize = limit * elemType.TypeByteLength()
@@ -24,7 +24,6 @@ func ComplexListType(name string, elemType TypeDef, limit uint64) *ComplexListTy
 		ElemType:  elemType,
 		ListLimit: limit,
 		ComplexTypeBase: ComplexTypeBase{
-			TypeName:    name,
 			MinSize:     0,
 			MaxSize:     maxSize,
 			Size:        0,
@@ -156,7 +155,7 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 }
 
 func (td *ComplexListTypeDef) String() string {
-	return fmt.Sprintf("List[%s, %d]", td.ElemType.Name(), td.ListLimit)
+	return fmt.Sprintf("List[%s, %d]", td.ElemType.String(), td.ListLimit)
 }
 
 type ComplexListView struct {

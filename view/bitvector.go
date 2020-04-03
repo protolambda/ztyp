@@ -11,12 +11,11 @@ type BitVectorTypeDef struct {
 	ComplexTypeBase
 }
 
-func BitvectorType(name string, length uint64) *BitVectorTypeDef {
+func BitvectorType(length uint64) *BitVectorTypeDef {
 	byteSize := (length + 7) / 8
 	return &BitVectorTypeDef{
 		BitLength: length,
 		ComplexTypeBase: ComplexTypeBase{
-			TypeName:    name,
 			MinSize:     byteSize,
 			MaxSize:     byteSize,
 			Size:        byteSize,

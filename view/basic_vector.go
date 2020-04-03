@@ -12,13 +12,12 @@ type BasicVectorTypeDef struct {
 	ComplexTypeBase
 }
 
-func BasicVectorType(name string, elemType BasicTypeDef, length uint64) *BasicVectorTypeDef {
+func BasicVectorType(elemType BasicTypeDef, length uint64) *BasicVectorTypeDef {
 	size := length * elemType.TypeByteLength()
 	return &BasicVectorTypeDef{
 		ElemType:     elemType,
 		VectorLength: length,
 		ComplexTypeBase: ComplexTypeBase{
-			TypeName: name,
 			MinSize: size,
 			MaxSize: size,
 			Size: size,
@@ -114,7 +113,7 @@ func (td *BasicVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 }
 
 func (td *BasicVectorTypeDef) String() string {
-	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.Name(), td.VectorLength)
+	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.String(), td.VectorLength)
 }
 
 type BasicVectorView struct {

@@ -52,7 +52,7 @@ func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
 	}
 }
 
-func (td UintMeta) SubViewFromBacking(v *Root, i uint8) (BasicView, error) {
+func (td UintMeta) BasicViewFromBacking(v *Root, i uint8) (BasicView, error) {
 	if uint64(i) >= (32 / uint64(td)) {
 		return nil, fmt.Errorf("cannot get subview %d for uint%d type", i, td)
 	}
@@ -126,12 +126,8 @@ func (td UintMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 	}
 }
 
-func (td UintMeta) Name() string {
-	return fmt.Sprintf("uint%d", td*8)
-}
-
 func (td UintMeta) String() string {
-	return td.Name()
+	return fmt.Sprintf("uint%d", td*8)
 }
 
 const (
@@ -391,10 +387,6 @@ func (td BoolMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 		return nil, fmt.Errorf("invalid bool value: 0x%x", b[0])
 	}
 	return BoolView(b[0] == 1), nil
-}
-
-func (td BoolMeta) Name() string {
-	return "bool"
 }
 
 func (td BoolMeta) String() string {
