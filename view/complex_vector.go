@@ -86,12 +86,12 @@ func (td *ComplexVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (Vi
 }
 
 func (td *ComplexVectorTypeDef) Default(hook BackingHook) View {
-	return td.New(hook)
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
+	return v
 }
 
-func (td *ComplexVectorTypeDef) New(hook BackingHook) *ComplexVectorView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v.(*ComplexVectorView)
+func (td *ComplexVectorTypeDef) New() *ComplexVectorView {
+	return td.Default(nil).(*ComplexVectorView)
 }
 
 func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {

@@ -79,17 +79,17 @@ func (td *ComplexListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View
 }
 
 func (td *ComplexListTypeDef) Default(hook BackingHook) View {
-	return td.New(hook)
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
+	return v
 }
 
-func (td *ComplexListTypeDef) New(hook BackingHook) *ComplexListView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v.(*ComplexListView)
+func (td *ComplexListTypeDef) New() *ComplexListView {
+	return td.Default(nil).(*ComplexListView)
 }
 
 func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	if scope == 0 {
-		return td.Default(nil), nil
+		return td.New(), nil
 	}
 	if td.ElemType.IsFixedByteLength() {
 		elemSize := td.ElemType.TypeByteLength()

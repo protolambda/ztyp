@@ -86,12 +86,12 @@ func (td *BasicVectorTypeDef) TranslateIndex(index uint64) (nodeIndex uint64, in
 }
 
 func (td *BasicVectorTypeDef) Default(hook BackingHook) View {
-	return td.New(hook)
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
+	return v
 }
 
-func (td *BasicVectorTypeDef) New(hook BackingHook) *BasicVectorView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v.(*BasicVectorView)
+func (td *BasicVectorTypeDef) New() *BasicVectorView {
+	return td.Default(nil).(*BasicVectorView)
 }
 
 func (td *BasicVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {

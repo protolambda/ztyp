@@ -100,12 +100,12 @@ func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, 
 }
 
 func (td *ContainerTypeDef) Default(hook BackingHook) View {
-	return td.New(hook)
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
+	return v
 }
 
-func (td *ContainerTypeDef) New(hook BackingHook) *ContainerView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v.(*ContainerView)
+func (td *ContainerTypeDef) New() *ContainerView {
+	return td.Default(nil).(*ContainerView)
 }
 
 func (td *ContainerTypeDef) FieldCount() uint64 {

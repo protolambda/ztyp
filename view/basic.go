@@ -31,6 +31,21 @@ func (td UintMeta) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
+func (td UintMeta) New() BasicView {
+	switch td {
+	case Uint8Type:
+		return Uint8View(0)
+	case Uint16Type:
+		return Uint16View(0)
+	case Uint32Type:
+		return Uint32View(0)
+	case Uint64Type:
+		return Uint64View(0)
+	default:
+		return nil
+	}
+}
+
 var UnsupportedUintType = errors.New("unsupported uint type")
 
 func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
@@ -71,20 +86,20 @@ func (td UintMeta) BasicViewFromBacking(v *Root, i uint8) (BasicView, error) {
 }
 
 func (td UintMeta) PackViews(views []BasicView) ([]Node, error) {
-	// TODO
-	perNode := uint8(td.ElementsPerBottomNode())
-	maxChunks := td.BottomNodeLimit()
-	chunks := make([]Node, maxChunks, maxChunks)
-	i := uint64(0)
-	for chunk := uint64(0); chunk < maxChunks; chunk++ {
+	// TODO can be optimized: switch on type, put contents directly into node bytes, and don't use temporary nodes
+	perNode := uint8(32 / td)
+	chunkCount := (uint64(len(views)) + uint64(perNode) - 1) / uint64(perNode)
+	chunks := make([]Node, chunkCount, chunkCount)
+	i := 0
+	for chunk := uint64(0); chunk < chunkCount; chunk++ {
 		root := &Root{}
-		for j := uint8(0); j < perNode && i < length; j++ {
-			root = v[i].BackingFromBase(root, j)
+		for j := uint8(0); j < perNode && i < len(views); j++ {
+			root = views[i].BackingFromBase(root, j)
 			i += 1
 		}
+		chunks = append(chunks, root)
 	}
-	v[0].BackingFromBase()
-	return nil, nil
+	return chunks, nil
 }
 
 func (td UintMeta) IsFixedByteLength() bool {
@@ -105,7 +120,7 @@ func (td UintMeta) MaxByteLength() uint64 {
 
 func (td UintMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 	if scope < uint64(td) {
-		return nil, fmt.Errorf("scope of %d bytes not enough for %s", scope, td.Name())
+		return nil, fmt.Errorf("scope of %d bytes not enough for %s", scope, td.String())
 	}
 	tmp := make([]byte, td, td)
 	_, err := r.Read(tmp)
@@ -344,6 +359,10 @@ func (td BoolMeta) BoolViewFromBitfieldBacking(v *Root, i uint8) (BoolView, erro
 
 func (td BoolMeta) Default(_ BackingHook) View {
 	return BoolView(false)
+}
+
+func (td BoolMeta) New() BoolView {
+	return false
 }
 
 func (td BoolMeta) DefaultNode() Node {

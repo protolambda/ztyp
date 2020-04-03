@@ -55,17 +55,17 @@ func (td *BitListTypeDef) BottomNodeLimit() uint64 {
 }
 
 func (td *BitListTypeDef) Default(hook BackingHook) View {
-	return td.New(hook)
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
+	return v
 }
 
-func (td *BitListTypeDef) New(hook BackingHook) *BitListView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v.(*BitListView)
+func (td *BitListTypeDef) New() *BitListView {
+	return td.Default(nil).(*BitListView)
 }
 
 func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	if scope == 0 {
-		return td.New(nil), nil
+		return td.New(), nil
 	}
 	if scope > td.Size {
 		return nil, fmt.Errorf("bitlist has too many bytes, bitlimit %d (byte size %d) but got scope %d", td.BitLimit, td.Size, scope)

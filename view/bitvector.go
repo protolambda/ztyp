@@ -55,12 +55,12 @@ func (td *BitVectorTypeDef) BottomNodeLength() uint64 {
 }
 
 func (td *BitVectorTypeDef) Default(hook BackingHook) View {
-	return td.New(hook)
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
+	return v
 }
 
-func (td *BitVectorTypeDef) New(hook BackingHook) *BitVectorView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v.(*BitVectorView)
+func (td *BitVectorTypeDef) New() *BitVectorView {
+	return td.Default(nil).(*BitVectorView)
 }
 
 func (td *BitVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {

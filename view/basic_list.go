@@ -87,12 +87,12 @@ func (td *BasicListTypeDef) TranslateIndex(index uint64) (nodeIndex uint64, intr
 }
 
 func (td *BasicListTypeDef) Default(hook BackingHook) View {
-	return td.New(hook)
+	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
+	return v
 }
 
-func (td *BasicListTypeDef) New(hook BackingHook) *BasicListView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v.(*BasicListView)
+func (td *BasicListTypeDef) New() *BasicListView {
+	return td.Default(nil).(*BasicListView)
 }
 
 func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {

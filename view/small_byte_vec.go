@@ -20,6 +20,10 @@ func (td SmallByteVecMeta) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
+func (td SmallByteVecMeta) New() SmallByteVecView {
+	return make(SmallByteVecView, td, td)
+}
+
 func (td SmallByteVecMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
 	r, ok := node.(*Root)
 	if !ok {
