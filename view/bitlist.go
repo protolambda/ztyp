@@ -81,10 +81,10 @@ func (td *BitListTypeDef) New() *BitListView {
 
 func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	if scope == 0 {
-		return td.New(), nil
+		return nil, fmt.Errorf("expected at least a delimit bit, bitlist scope cannot be 0")
 	}
-	if scope > td.Size {
-		return nil, fmt.Errorf("bitlist has too many bytes, bitlimit %d (byte size %d) but got scope %d", td.BitLimit, td.Size, scope)
+	if scope > td.MaxSize {
+		return nil, fmt.Errorf("bitlist has too many bytes, bitlimit %d (byte size %d) but got scope %d", td.BitLimit, td.MaxSize, scope)
 	}
 	contents := make([]byte, scope, scope)
 	if _, err := r.Read(contents); err != nil {
@@ -93,6 +93,10 @@ func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	lastByte := contents[scope-1]
 	if lastByte == 0 {
 		return nil, fmt.Errorf("bitlist last byte must not be zero, delimit bit is missing")
+	}
+	if scope == 1 && lastByte == 1 {
+		// only a delimit bit, return empty bitlist
+		return td.New(), nil
 	}
 	delimitBitIndex := ByteBitIndex(lastByte)
 	bitLen := ((scope - 1) << 3) + delimitBitIndex

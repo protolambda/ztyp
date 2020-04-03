@@ -126,7 +126,7 @@ type offsetField struct {
 
 func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	fields := make([]View, len(td.Fields), len(td.Fields))
-	offsets := make([]offsetField, td.OffsetsCount, td.OffsetsCount)
+	offsets := make([]offsetField, 0, td.OffsetsCount)
 	prevOffset := uint32(td.FixedPartSize)
 	if err := td.checkScope(scope); err != nil {
 		return nil, err
@@ -134,8 +134,7 @@ func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 	// Deserialize the fixed part: fixed-size fields and offsets to dynamic fields
 	for i, f := range td.Fields {
 		if f.Type.IsFixedByteLength() {
-			// No need to redefine the scope for fixed-length SSZ objects.
-			v, err := f.Type.Deserialize(r, scope)
+			v, err := f.Type.Deserialize(r, f.Type.TypeByteLength())
 			if err != nil {
 				return nil, err
 			}

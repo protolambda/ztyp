@@ -104,6 +104,9 @@ func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 	if expected := length*elemSize; expected != scope {
 		return nil, fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
 	}
+	if length == 0 {
+		return td.New(), nil
+	}
 	contents := make([]byte, scope, scope)
 	if _, err := r.Read(contents); err != nil {
 		return nil, err
