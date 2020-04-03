@@ -64,7 +64,9 @@ func bitReadonlyIter(node Node, length uint64, depth uint8) BitIter {
 			}
 			stackIndex += 1
 		} else {
-			stack[0] = node
+			if depth != 0 {
+				stack[0] = node
+			}
 			stackIndex = 1
 		}
 		// and move down left into this new subtree

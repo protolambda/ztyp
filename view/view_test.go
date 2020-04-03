@@ -320,7 +320,7 @@ func init() {
 				),
 				zeroHashes[2],
 			), chunk("02000000"))},
-		{"empty list fields", ListAType.New(), "08000000" + "08000000",
+		{"empty list fields", ListStructType.New(), "08000000" + "08000000",
 			h(h(zeroHashes[2], chunk("")), h(zeroHashes[3], chunk("")))},
 		{"empty last field", viewMust(ListStructType.FromFields(viewMust(ListAType.FromElements(
 			viewMust(SmallTestStructType.FromFields(Uint16View(0xaa11), Uint16View(0xbb22))),

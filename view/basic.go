@@ -51,7 +51,7 @@ var UnsupportedUintType = errors.New("unsupported uint type")
 func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
 	v, ok := node.(*Root)
 	if !ok {
-		return nil, fmt.Errorf("node %v must be a root to read a uint%d from it", node, td)
+		return nil, fmt.Errorf("node %v must be a root to read a uint%d from it", node, td*8)
 	}
 	switch td {
 	case Uint8Type:

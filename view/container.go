@@ -65,8 +65,14 @@ func (td *ContainerTypeDef) FromFields(v... View) (*ContainerView, error) {
 		nodes[i] = el.Backing()
 	}
 	depth := CoverDepth(td.FieldCount())
-	rootNode, _ := SubtreeFillToContents(nodes, depth)
-	conView, _ := td.ViewFromBacking(rootNode, nil)
+	rootNode, err := SubtreeFillToContents(nodes, depth)
+	if err != nil {
+		return nil, err
+	}
+	conView, err := td.ViewFromBacking(rootNode, nil)
+	if err != nil {
+		return nil, err
+	}
 	return conView.(*ContainerView), nil
 }
 
@@ -96,6 +102,7 @@ func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, 
 			},
 			depth:       depth,
 		},
+		ContainerTypeDef: td,
 	}, nil
 }
 

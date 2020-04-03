@@ -197,7 +197,7 @@ func (tv *BitVectorView) ValueByteLength() (uint64, error) {
 
 func (tv *BitVectorView) Serialize(w io.Writer) error {
 	contents := make([]byte, tv.Size, tv.Size)
-	if err := SubtreeIntoBytes(tv.BackingNode, tv.depth, tv.Size, contents); err != nil {
+	if err := SubtreeIntoBytes(tv.BackingNode, tv.depth, tv.BottomNodeLength(), contents); err != nil {
 		return err
 	}
 	_, err := w.Write(contents)

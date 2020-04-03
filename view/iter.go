@@ -49,7 +49,9 @@ func basicElemReadonlyIter(node Node, length uint64, depth uint8, elemType Basic
 			}
 			stackIndex += 1
 		} else {
-			stack[0] = node
+			if depth != 0 {
+				stack[0] = node
+			}
 			stackIndex = 1
 		}
 		// and move down left into this new subtree
@@ -110,7 +112,9 @@ func nodeReadonlyIter(node Node, length uint64, depth uint8) NodeIter {
 			}
 			stackIndex += 1
 		} else {
-			stack[0] = node
+			if depth != 0 {
+				stack[0] = node
+			}
 			stackIndex = 1
 		}
 		// and move down left into this new subtree

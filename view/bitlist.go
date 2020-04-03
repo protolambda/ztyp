@@ -363,7 +363,7 @@ func (tv *BitListView) Serialize(w io.Writer) error {
 	byteLength := (bitLength + 7 + 1) / 8
 	contents := make([]byte, byteLength, byteLength)
 	// one less depth, ignore length mix-in. Iteration length without bitlist delimit bit.
-	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, (bitLength + 7) / 8, contents); err != nil {
+	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, (bitLength + 0xff) >> 8, contents); err != nil {
 		return err
 	}
 	// Add delimit bit

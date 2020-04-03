@@ -32,7 +32,7 @@ func ComplexListType(elemType TypeDef, limit uint64) *ComplexListTypeDef {
 	}
 }
 
-func (td *ComplexListTypeDef) FromElements(v... View) (*ComplexVectorView, error) {
+func (td *ComplexListTypeDef) FromElements(v... View) (*ComplexListView, error) {
 	if uint64(len(v)) > td.ListLimit {
 		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
 	}
@@ -44,7 +44,7 @@ func (td *ComplexListTypeDef) FromElements(v... View) (*ComplexVectorView, error
 	contentsRootNode, _ := SubtreeFillToContents(nodes, depth)
 	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
 	vecView, _ := td.ViewFromBacking(rootNode, nil)
-	return vecView.(*ComplexVectorView), nil
+	return vecView.(*ComplexListView), nil
 }
 
 func (td *ComplexListTypeDef) ElementType() TypeDef {
