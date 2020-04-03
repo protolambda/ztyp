@@ -12,7 +12,7 @@ type BitListTypeDef struct {
 	ComplexTypeBase
 }
 
-func BitlistType(limit uint64) *BitListTypeDef {
+func BitListType(limit uint64) *BitListTypeDef {
 	return &BitListTypeDef{
 		BitLimit: limit,
 		ComplexTypeBase: ComplexTypeBase{
@@ -22,6 +22,22 @@ func BitlistType(limit uint64) *BitListTypeDef {
 			IsFixedSize: false,
 		},
 	}
+}
+
+func (td *BitListTypeDef) FromBits(bits []bool) (*BitListView, error) {
+	if uint64(len(bits)) > td.BitLimit {
+		return nil, fmt.Errorf("got %d bits, expected no more than %d bits", len(bits), td.BitLimit)
+	}
+	contents := bitsToBytes(bits)
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(bits)).Backing()}
+	view, _ := td.ViewFromBacking(rootNode, nil)
+	return view.(*BitListView), nil
 }
 
 func (td *BitListTypeDef) Limit() uint64 {
@@ -98,8 +114,8 @@ func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 	depth := CoverDepth(td.BottomNodeLimit())
 	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
 	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(bitLen).Backing()}
-	listView, _ := td.ViewFromBacking(rootNode, nil)
-	return listView.(*BasicListView), nil
+	view, _ := td.ViewFromBacking(rootNode, nil)
+	return view.(*BitListView), nil
 }
 
 // Get index of left-most 1 bit.

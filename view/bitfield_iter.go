@@ -93,3 +93,14 @@ func bitReadonlyIter(node Node, length uint64, depth uint8) BitIter {
 		return el, true, nil
 	})
 }
+
+func bitsToBytes(bits []bool) []byte {
+	byteLen := (len(bits) + 7) / 8
+	out := make([]byte, byteLen, byteLen)
+	for i, b := range bits {
+		if b {
+			out[i>>3] |= 1 << (i & 0b111)
+		}
+	}
+	return out
+}

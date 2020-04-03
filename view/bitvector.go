@@ -11,7 +11,7 @@ type BitVectorTypeDef struct {
 	ComplexTypeBase
 }
 
-func BitvectorType(length uint64) *BitVectorTypeDef {
+func BitVectorType(length uint64) *BitVectorTypeDef {
 	byteSize := (length + 7) / 8
 	return &BitVectorTypeDef{
 		BitLength: length,
@@ -22,6 +22,21 @@ func BitvectorType(length uint64) *BitVectorTypeDef {
 			IsFixedSize: true,
 		},
 	}
+}
+
+func (td *BitVectorTypeDef) FromBits(bits []bool) (*BitVectorView, error) {
+	if uint64(len(bits)) != td.BitLength {
+		return nil, fmt.Errorf("got %d bits, expected %d bits", len(bits), td.BitLength)
+	}
+	contents := bitsToBytes(bits)
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return nil, err
+	}
+	depth := CoverDepth(td.BottomNodeLength())
+	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	view, _ := td.ViewFromBacking(rootNode, nil)
+	return view.(*BitVectorView), nil
 }
 
 func (td *BitVectorTypeDef) Length() uint64 {
@@ -83,8 +98,8 @@ func (td *BitVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 	}
 	depth := CoverDepth(td.BottomNodeLength())
 	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
-	listView, _ := td.ViewFromBacking(rootNode, nil)
-	return listView.(*BasicVectorView), nil
+	view, _ := td.ViewFromBacking(rootNode, nil)
+	return view.(*BitVectorView), nil
 }
 
 func (td *BitVectorTypeDef) String() string {
