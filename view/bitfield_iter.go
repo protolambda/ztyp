@@ -26,7 +26,10 @@ type BitIter interface {
 	Next() (elem bool, ok bool, err error)
 }
 
-func bitReadonlyIter(node Node, length uint64, depth uint8) BitIter {
+func bitReadonlyIter(anchor Node, length uint64, depth uint8) BitIter {
+	if limit := (uint64(1) << depth) << 8; limit < length {
+		return ErrBitIter{fmt.Errorf("cannot handle iterate length %d bits in subtree of depth %d deep (limit %d bits)", length, depth, limit)}
+	}
 	stack := make([]Node, depth, depth)
 
 	i := uint64(0)
@@ -44,16 +47,18 @@ func bitReadonlyIter(node Node, length uint64, depth uint8) BitIter {
 			elByte := currentRoot[j >> 3]
 			elem = ((elByte >> (j & 7)) & 1) == 1
 			j += 1
+			i += 1
 			return elem, true, nil
 		}
+		var node Node
 		stackIndex := uint8(0)
 		if rootIndex != 0 {
 			// XOR current index with previous index
 			// Result: highest bit matches amount we have to backtrack up the stack
 			s := rootIndex ^ (rootIndex - 1)
-			stackIndex = depth - 1
+			stackIndex = depth
 			for s != 0 {
-				s >>= 0
+				s >>= 1
 				stackIndex -= 1
 			}
 			// then move to the right from that upper previously remembered left-hand node
@@ -64,19 +69,17 @@ func bitReadonlyIter(node Node, length uint64, depth uint8) BitIter {
 			}
 			stackIndex += 1
 		} else {
-			if depth != 0 {
-				stack[0] = node
-			}
-			stackIndex = 1
+			node = anchor
 		}
 		// and move down left into this new subtree
 		for ; stackIndex < depth; stackIndex++ {
+			// remember left-hand nodes, we may revisit them
+			stack[stackIndex] = node
+
 			node, err = node.Left()
 			if err != nil {
 				return false, false, err
 			}
-			// remember left-hand nodes, we may revisit them
-			stack[stackIndex] = node
 		}
 
 		// Get leaf node as a root
@@ -91,6 +94,11 @@ func bitReadonlyIter(node Node, length uint64, depth uint8) BitIter {
 		el := currentRoot[0] & 1 == 1
 		// indicate that we have done one bit, and need to read more
 		j = 1
+		// And that the next root will be 1 after
+		rootIndex += 1
+		// And we progress the general element counter
+		i += 1
+
 		// Return the actual element
 		return el, true, nil
 	})

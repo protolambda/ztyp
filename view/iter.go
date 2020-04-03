@@ -5,9 +5,7 @@ import (
 	. "github.com/protolambda/ztyp/tree"
 )
 
-func basicElemReadonlyIter(node Node, length uint64, depth uint8, elemType BasicTypeDef) ElemIter {
-	stack := make([]Node, depth, depth)
-
+func basicElemReadonlyIter(anchor Node, length uint64, depth uint8, elemType BasicTypeDef) ElemIter {
 	i := uint64(0)
 	// max 32 elements per bottom nodes, uint8 is safe.
 	perNode := 32 / uint8(elemType.TypeByteLength())
@@ -15,6 +13,11 @@ func basicElemReadonlyIter(node Node, length uint64, depth uint8, elemType Basic
 	if j == 0 {
 		j = perNode
 	}
+	if limit := (uint64(1) << depth) * uint64(perNode); limit < length {
+		return ErrElemIter{fmt.Errorf("cannot handle iterate length %d bottom subviews (%d per node) in subtree of depth %d deep (limit %d subviews)", length, perNode, depth, limit)}
+	}
+
+	stack := make([]Node, depth, depth)
 	var currentRoot *Root
 	rootIndex := uint64(0)
 	return ElemIterFn(func() (elem View, ok bool, err error) {
@@ -25,20 +28,24 @@ func basicElemReadonlyIter(node Node, length uint64, depth uint8, elemType Basic
 		// in the middle of a node currently? finish that first
 		if j < perNode {
 			el, err := elemType.BasicViewFromBacking(currentRoot, j)
-			j += 1
 			if err != nil {
 				return nil, false, err
 			}
+			// progress how many nodes we have seen so far in this bottom chunk
+			j += 1
+			// progress the general element counter,
+			i += 1
 			return el, true, nil
 		}
+		var node Node
 		stackIndex := uint8(0)
 		if rootIndex != 0 {
 			// XOR current index with previous index
 			// Result: highest bit matches amount we have to backtrack up the stack
 			s := rootIndex ^ (rootIndex - 1)
-			stackIndex = depth - 1
+			stackIndex = depth
 			for s != 0 {
-				s >>= 0
+				s >>= 1
 				stackIndex -= 1
 			}
 			// then move to the right from that upper previously remembered left-hand node
@@ -49,19 +56,17 @@ func basicElemReadonlyIter(node Node, length uint64, depth uint8, elemType Basic
 			}
 			stackIndex += 1
 		} else {
-			if depth != 0 {
-				stack[0] = node
-			}
-			stackIndex = 1
+			node = anchor
 		}
 		// and move down left into this new subtree
 		for ; stackIndex < depth; stackIndex++ {
+			// remember left-hand nodes, we may revisit them
+			stack[stackIndex] = node
+
 			node, err = node.Left()
 			if err != nil {
 				return nil, false, err
 			}
-			// remember left-hand nodes, we may revisit them
-			stack[stackIndex] = node
 		}
 
 		// Get leaf node as a root
@@ -79,29 +84,37 @@ func basicElemReadonlyIter(node Node, length uint64, depth uint8, elemType Basic
 		}
 		// indicate that we have done one subview, and may need more to be read. Next one would be index 1, if any.
 		j = 1
+		// And that the next root will be 1 after
+		rootIndex += 1
+		// And we progress the general element counter
+		i += 1
+
 		// Return the actual element
 		return el, true, nil
 	})
 }
 
-func nodeReadonlyIter(node Node, length uint64, depth uint8) NodeIter {
+func nodeReadonlyIter(anchor Node, length uint64, depth uint8) NodeIter {
+	if limit := uint64(1) << depth; limit < length {
+		return ErrNodeIter{fmt.Errorf("cannot handle iterate length %d nodes in subtree of depth %d deep (limit %d)", length, depth, limit)}
+	}
 	stack := make([]Node, depth, depth)
 
 	i := uint64(0)
-	rootIndex := uint64(0)
 	return NodeIterFn(func() (chunk Node, ok bool, err error) {
 		// done yet?
 		if i >= length {
 			return nil, false, nil
 		}
+		var node Node
 		stackIndex := uint8(0)
-		if rootIndex != 0 {
+		if i != 0 {
 			// XOR current index with previous index
 			// Result: highest bit matches amount we have to backtrack up the stack
-			s := rootIndex ^ (rootIndex - 1)
-			stackIndex = depth - 1
+			s := i ^ (i - 1)
+			stackIndex = depth
 			for s != 0 {
-				s >>= 0
+				s >>= 1
 				stackIndex -= 1
 			}
 			// then move to the right from that upper previously remembered left-hand node
@@ -112,20 +125,19 @@ func nodeReadonlyIter(node Node, length uint64, depth uint8) NodeIter {
 			}
 			stackIndex += 1
 		} else {
-			if depth != 0 {
-				stack[0] = node
-			}
-			stackIndex = 1
+			node = anchor
 		}
 		// and move down left into this new subtree
 		for ; stackIndex < depth; stackIndex++ {
+			// remember left-hand nodes, we may revisit them
+			stack[stackIndex] = node
+
 			node, err = node.Left()
 			if err != nil {
 				return nil, false, err
 			}
-			// remember left-hand nodes, we may revisit them
-			stack[stackIndex] = node
 		}
+		i += 1
 
 		// Return the actual element
 		return node, true, nil
