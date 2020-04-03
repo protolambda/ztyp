@@ -346,10 +346,12 @@ func (tv *BasicListView) Serialize(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	contents := make([]byte, length, length)
-	// one less depth, ignore length mix-in
 	elemSize := tv.ElemType.TypeByteLength()
-	nodeCount := (length + elemSize - 1) / elemSize
+	byteLength := length * elemSize
+	contents := make([]byte, byteLength, byteLength)
+	// one less depth, ignore length mix-in
+	perNode := 32 / elemSize
+	nodeCount := (length + perNode - 1) / perNode
 	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, nodeCount, contents); err != nil {
 		return err
 	}

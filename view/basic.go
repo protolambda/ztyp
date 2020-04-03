@@ -97,7 +97,7 @@ func (td UintMeta) PackViews(views []BasicView) ([]Node, error) {
 			root = views[i].BackingFromBase(root, j)
 			i += 1
 		}
-		chunks = append(chunks, root)
+		chunks[chunk] = root
 	}
 	return chunks, nil
 }

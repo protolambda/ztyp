@@ -152,7 +152,7 @@ func serializeComplexFixElemSeries(iter ElemIter, w io.Writer) error {
 }
 
 func serializeComplexVarElemSeries(length uint64, iter ElemIter, w io.Writer) error {
-	elements := make([]View, length, length)
+	elements := make([]View, 0, length)
 
 	// the previous offset, to calculate a new offset from, starting after the fixed data.
 	prevOffset := length * OffsetByteLength
