@@ -5,8 +5,7 @@ For a super-fast but non-tree approach, try [ZSSZ](https://github.com/protolambd
 
 Work in progress! ZTYP mirrors most features of my Python
  implementation [`remerkleable`](https://github.com/protolambda/remerkleable),
-but is still in a testing phase with heavy refactors. 
-Warning: Not all tests are currently passing.
+but is still in a testing phase with heavy refactors.
 
 ## Design
 
