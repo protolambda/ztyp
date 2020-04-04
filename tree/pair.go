@@ -177,7 +177,7 @@ func SubtreeFillToLength(bottom Node, depth uint8, length uint64) (Node, error) 
 		if err != nil {
 			return nil, err
 		}
-		return NewPairNode(left, &ZeroHashes[0]), nil
+		return NewPairNode(left, &ZeroHashes[depth-1]), nil
 	} else {
 		left := SubtreeFillToDepth(bottom, depth-1)
 		right, err := SubtreeFillToLength(bottom, depth-1, length-pivot)
@@ -212,7 +212,7 @@ func SubtreeFillToContents(nodes []Node, depth uint8) (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		return NewPairNode(left, &ZeroHashes[0]), nil
+		return NewPairNode(left, &ZeroHashes[depth-1]), nil
 	} else {
 		left, err := SubtreeFillToContents(nodes[:pivot], depth-1)
 		if err != nil {
