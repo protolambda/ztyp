@@ -94,26 +94,32 @@ func (c *PairNode) Setter(target Gindex, expand bool) (Link, error) {
 		link = c.RebindLeft
 		node = c.LeftChild
 	}
+	depth -= 2
+	if node.IsLeaf() {
+		if !expand {
+			return nil, NavigationError
+		}
+		child := ZeroNode(depth)
+		node = NewPairNode(child, child)
+	}
 	// now on to the second child bit: gindex 4/6 vs 5/7
 	right, _ = iter.Next()
-	depth -= 2
 	var err error
 	for {
+		if right {
+			node, err = node.Right()
+		} else {
+			node, err = node.Left()
+		}
+		if err != nil {
+			return nil, err
+		}
 		if node.IsLeaf() {
 			if !expand {
 				return nil, NavigationError
 			}
 			child := ZeroNode(depth)
 			node = NewPairNode(child, child)
-		} else {
-			if right {
-				node, err = node.Right()
-			} else {
-				node, err = node.Left()
-			}
-		}
-		if err != nil {
-			return nil, err
 		}
 		if right {
 			link = link.Wrap(node.RebindRight)

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-var BLSPubkeyType = BasicVectorType("BLSPubkey", ByteType, 48)
+var BLSPubkeyType = BasicVectorType(ByteType, 48)
 
 var ValidatorType = ContainerType("Validator", []FieldDef{
 	{"pubkey", BLSPubkeyType},
@@ -24,42 +24,53 @@ const VALIDATOR_REGISTRY_LIMIT uint64 = 1 << 40
 
 var RegistryBalancesType = BasicListType(Uint64Type, VALIDATOR_REGISTRY_LIMIT)
 
-var RegistryValidatorsType = ListType(ValidatorType, VALIDATOR_REGISTRY_LIMIT)
+var RegistryValidatorsType = ComplexListType(ValidatorType, VALIDATOR_REGISTRY_LIMIT)
 
 func BenchmarkRegInitHash(t *testing.B) {
 	startCount := 100000
 	regView := RegistryValidatorsType.New()
 	for i := 0; i < startCount; i++ {
 		if err := regView.Append(ValidatorType.New()); err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}
+	// after initial cost, hashing is cached, and it's essentially free.
+	hFn := tree.GetHashFn()
+	res := byte(0)
+	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
-		r := regView.ViewRoot(tree.Hash)
-		t.Logf("x; %x", r)
-		ll, err := regView.Length()
-		t.Logf("length: %d %v", ll, err)
+		r := regView.HashTreeRoot(hFn)
+		res ^= r[0]  // do something with the output, don't ignore it.
+		//t.Logf("x; %x", r)
 	}
+	t.Logf("res %d", res)
+	ll, err := regView.Length()
+	t.Logf("length: %d %v, N: %d", ll, err, t.N)
 }
 
 func BenchmarkRegHash(t *testing.B) {
 	startCount := 100000
 	regView := RegistryValidatorsType.New()
-	r := regView.ViewRoot(tree.Hash)
+	hFn := tree.GetHashFn()
+	r := regView.HashTreeRoot(hFn)
 	t.Logf("r; %x", r)
 	for i := 0; i < startCount; i++ {
 		if err := regView.Append(ValidatorType.New()); err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}
 	ll, err := regView.Length()
 	t.Logf("length: %d %v", ll, err)
+	t.Logf("N: %d", t.N)
 	t.ResetTimer()
+	res := byte(0)
 	for i := 0; i < t.N; i++ {
 		if err := regView.Append(ValidatorType.New()); err != nil {
 			t.Error(err)
 		}
-		r := regView.ViewRoot(tree.Hash)
-		t.Logf("x; %x", r)
+		r := regView.HashTreeRoot(hFn)
+		res ^= r[0]  // do something with the output, don't ignore it.
+		//t.Logf("x; %x", r)
 	}
+	t.Logf("res %d", res)
 }
