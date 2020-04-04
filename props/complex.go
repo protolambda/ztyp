@@ -7,9 +7,9 @@ import (
 
 // This file is why we need generics in Go. Could have been ~10 lines.
 
-type ContainerReadProp ReadPropFn
+type ContainerProp ReadPropFn
 
-func (p ContainerReadProp) Container() (*ContainerView, error) {
+func (p ContainerProp) Container() (*ContainerView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err
@@ -21,9 +21,9 @@ func (p ContainerReadProp) Container() (*ContainerView, error) {
 	return c, nil
 }
 
-type VectorReadProp ReadPropFn
+type ComplexVectorProp ReadPropFn
 
-func (p VectorReadProp) Vector() (*ComplexVectorView, error) {
+func (p ComplexVectorProp) Vector() (*ComplexVectorView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err
@@ -35,23 +35,23 @@ func (p VectorReadProp) Vector() (*ComplexVectorView, error) {
 	return c, nil
 }
 
-type BasicVectorReadProp ReadPropFn
+type BasicVectorProp ReadPropFn
 
-func (p BasicVectorReadProp) BasicVector() (*PackedVectorView, error) {
+func (p BasicVectorProp) BasicVector() (*BasicVectorView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err
 	}
-	bv, ok := v.(*PackedVectorView)
+	bv, ok := v.(*BasicVectorView)
 	if ok {
 		return nil, fmt.Errorf("view is not a basic vector: %v", v)
 	}
 	return bv, nil
 }
 
-type BitVectorReadProp ReadPropFn
+type BitVectorProp ReadPropFn
 
-func (p BitVectorReadProp) BitVector() (*BitVectorView, error) {
+func (p BitVectorProp) BitVector() (*BitVectorView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err
@@ -63,23 +63,37 @@ func (p BitVectorReadProp) BitVector() (*BitVectorView, error) {
 	return bv, nil
 }
 
-type ListReadProp ReadPropFn
+type ComplexListProp ReadPropFn
 
-func (p ListReadProp) List() (*ListView, error) {
+func (p ComplexListProp) List() (*ComplexListView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err
 	}
-	c, ok := v.(*ListView)
+	c, ok := v.(*ComplexListView)
 	if ok {
 		return nil, fmt.Errorf("view is not a list: %v", v)
 	}
 	return c, nil
 }
 
-type BitListReadProp ReadPropFn
+type BasicListProp ReadPropFn
 
-func (p BitListReadProp) BitList() (*BitListView, error) {
+func (p BasicListProp) BasicList() (*BasicListView, error) {
+	v, err := p()
+	if err != nil {
+		return nil, err
+	}
+	bv, ok := v.(*BasicListView)
+	if ok {
+		return nil, fmt.Errorf("view is not a basic list: %v", v)
+	}
+	return bv, nil
+}
+
+type BitListProp ReadPropFn
+
+func (p BitListProp) BitList() (*BitListView, error) {
 	v, err := p()
 	if err != nil {
 		return nil, err

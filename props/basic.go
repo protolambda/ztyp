@@ -13,17 +13,18 @@ func (p RootReadProp) Root() (Root, error) {
 	if err != nil {
 		return Root{}, err
 	}
-	r, ok := v.(*Root)
+	r, ok := v.(*RootView)
 	if ok {
 		return Root{}, fmt.Errorf("not a root view: %v", v)
 	}
-	return *r, nil
+	return Root(*r), nil
 }
 
 type RootWriteProp WritePropFn
 
 func (p RootWriteProp) SetRoot(v Root) error {
-	return p(&v)
+	rv := RootView(v)
+	return p(&rv)
 }
 
 type Uint64ReadProp ReadPropFn

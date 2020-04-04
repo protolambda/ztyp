@@ -5,6 +5,8 @@ import (
 	. "github.com/protolambda/ztyp/view"
 )
 
+// ReadProp, but note that the view may have a BackingHook,
+// so reading is not necessarily an immutable copy, unless it's a basic-view.
 type ReadProp interface {
 	Read() (View, error)
 }

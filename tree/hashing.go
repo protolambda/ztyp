@@ -16,9 +16,9 @@ func sha256Combi(a Root, b Root) Root {
 
 func sha256CombiRepeat() HashFn {
 	hash := sha256.New()
+	v := [64]byte{}
 	hashFn := func(a Root, b Root) (out Root) {
 		hash.Reset()
-		v := [64]byte{}
 		copy(v[:32], a[:])
 		copy(v[32:], b[:])
 		hash.Write(v[:])
