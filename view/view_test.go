@@ -35,7 +35,7 @@ var ComplexTestStructType = ContainerType("ComplexTestStruct", []FieldDef{
 	{Name: "A", Type: Uint16Type},
 	{Name: "B", Type: ListType(Uint16Type, 128)},
 	{Name: "C", Type: Uint8Type},
-	{Name: "D", Type: ListType(ByteType, 64)},
+	{Name: "D", Type: ListType(ByteType, 256)},
 	{Name: "E", Type: VarTestStructType},
 	{Name: "F", Type: VectorType(FixedTestStructType, 4)},
 	{Name: "G", Type: VectorType(VarTestStructType, 2)},
@@ -348,7 +348,7 @@ func init() {
 				Uint16View(0xaabb),
 				viewMust(BasicListType(Uint16Type, 128).FromElements(Uint16View(0x1122), Uint16View(0x3344))),
 				Uint8View(0xff),
-				viewMust(BasicListType(ByteType, 64).FromElements(ByteView('f'), ByteView('o'), ByteView('o'), ByteView('b'), ByteView('a'), ByteView('r'))),
+				viewMust(BasicListType(ByteType, 256).FromElements(ByteView('f'), ByteView('o'), ByteView('o'), ByteView('b'), ByteView('a'), ByteView('r'))),
 				viewMust(
 					VarTestStructType.FromFields(
 						Uint16View(0xabcd),
@@ -459,8 +459,8 @@ func TestValueByteLength(t *testing.T) {
 }
 
 func TestDecode(t *testing.T) {
+	hFn := tree.GetHashFn()
 	for _, tt := range testCases {
-		hFn := tree.GetHashFn()
 		t.Run(tt.name, func(t *testing.T) {
 			sszTyp := tt.value.Type()
 			data, err := hex.DecodeString(tt.hex)
@@ -478,7 +478,15 @@ func TestDecode(t *testing.T) {
 			root := dest.HashTreeRoot(hFn)
 			hexRoot := hex.EncodeToString(root[:])
 			if hexRoot != tt.root {
-				t.Errorf("Hash tree root of deserialized object does not match expected root. Got: %s, expected: %s", hexRoot, tt.root)
+				t.Errorf("Hash tree root of deserialized object does not match expected root. Got: %s, expected: %s.", hexRoot, tt.root)
+			}
+			var buf bytes.Buffer
+			if err := dest.Serialize(&buf); err != nil {
+				t.Errorf("failed to serialize object that was just deserialized: %v", err)
+			}
+			out := hex.EncodeToString(buf.Bytes())
+			if out != tt.hex {
+				t.Errorf("original bytes do not match bytes after deserialize/serialize round-trip:\nout: %s\nin:  %s", out, tt.hex)
 			}
 		})
 	}
