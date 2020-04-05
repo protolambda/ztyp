@@ -121,6 +121,17 @@ type BasicVectorView struct {
 	*BasicVectorTypeDef
 }
 
+func AsBasicVector(v View, err error) (*BasicVectorView, error) {
+	if err != nil {
+		return nil, err
+	}
+	bv, ok := v.(*BasicVectorView)
+	if ok {
+		return nil, fmt.Errorf("view is not a basic vector: %v", v)
+	}
+	return bv, nil
+}
+
 func (tv *BasicVectorView) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {
 	bottomIndex, subIndex = tv.TranslateIndex(i)
 	v, err := tv.SubtreeView.GetNode(bottomIndex)

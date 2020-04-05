@@ -156,6 +156,17 @@ var BasicViewNoSetBackingError = errors.New("basic views cannot set new backing"
 
 type Uint8View uint8
 
+func AsUint8(v View, err error) (Uint8View, error) {
+	if err != nil {
+		return 0, err
+	}
+	n, ok := v.(Uint8View)
+	if ok {
+		return 0, fmt.Errorf("not a uint8 view: %v", v)
+	}
+	return n, nil
+}
+
 func (v Uint8View) SetBacking(b Node) error {
 	return BasicViewNoSetBackingError
 }
@@ -204,7 +215,22 @@ const ByteType = Uint8Type
 // Alias to Uint8View
 type ByteView = Uint8View
 
+func AsByte(v View, err error) (ByteView, error) {
+	return AsUint8(v, err)
+}
+
 type Uint16View uint16
+
+func AsUint16(v View, err error) (Uint16View, error) {
+	if err != nil {
+		return 0, err
+	}
+	n, ok := v.(Uint16View)
+	if ok {
+		return 0, fmt.Errorf("not a uint8 view: %v", v)
+	}
+	return n, nil
+}
 
 func (v Uint16View) SetBacking(b Node) error {
 	return BasicViewNoSetBackingError
@@ -250,6 +276,17 @@ func (v Uint16View) Type() TypeDef {
 
 type Uint32View uint32
 
+func AsUint32(v View, err error) (Uint32View, error) {
+	if err != nil {
+		return 0, err
+	}
+	n, ok := v.(Uint32View)
+	if ok {
+		return 0, fmt.Errorf("not a uint8 view: %v", v)
+	}
+	return n, nil
+}
+
 func (v Uint32View) SetBacking(b Node) error {
 	return BasicViewNoSetBackingError
 }
@@ -293,6 +330,17 @@ func (v Uint32View) Type() TypeDef {
 }
 
 type Uint64View uint64
+
+func AsUint64(v View, err error) (Uint64View, error) {
+	if err != nil {
+		return 0, err
+	}
+	n, ok := v.(Uint64View)
+	if ok {
+		return 0, fmt.Errorf("not a uint8 view: %v", v)
+	}
+	return n, nil
+}
 
 func (v Uint64View) SetBacking(b Node) error {
 	return BasicViewNoSetBackingError
@@ -415,6 +463,17 @@ func (td BoolMeta) String() string {
 const BoolType BoolMeta = 0
 
 type BoolView bool
+
+func AsBool(v View, err error) (BoolView, error) {
+	if err != nil {
+		return false, err
+	}
+	b, ok := v.(BoolView)
+	if ok {
+		return false, fmt.Errorf("not a bool view: %v", v)
+	}
+	return b, nil
+}
 
 var trueRoot = &Root{1}
 

@@ -62,6 +62,17 @@ const RootType RootMeta = 0
 
 type RootView Root
 
+func AsRoot(v View, err error) (Root, error) {
+	if err != nil {
+		return Root{}, err
+	}
+	r, ok := v.(*RootView)
+	if ok {
+		return Root{}, fmt.Errorf("not a root view: %v", v)
+	}
+	return Root(*r), nil
+}
+
 func (r *RootView) Type() TypeDef {
 	return RootType
 }

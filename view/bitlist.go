@@ -150,6 +150,17 @@ type BitListView struct {
 	*BitListTypeDef
 }
 
+func AsBitList(v View, err error) (*BitListView, error) {
+	if err != nil {
+		return nil, err
+	}
+	bv, ok := v.(*BitListView)
+	if ok {
+		return nil, fmt.Errorf("view is not a bitlist: %v", v)
+	}
+	return bv, nil
+}
+
 func (tv *BitListView) Append(view BoolView) error {
 	ll, err := tv.Length()
 	if err != nil {

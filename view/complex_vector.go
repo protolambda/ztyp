@@ -151,6 +151,17 @@ type ComplexVectorView struct {
 	*ComplexVectorTypeDef
 }
 
+func AsComplexVector(v View, err error) (*ComplexVectorView, error) {
+	if err != nil {
+		return nil, err
+	}
+	c, ok := v.(*ComplexVectorView)
+	if ok {
+		return nil, fmt.Errorf("view is not a vector: %v", v)
+	}
+	return c, nil
+}
+
 func (tv *ComplexVectorView) Get(i uint64) (View, error) {
 	if i >= tv.ComplexVectorTypeDef.VectorLength {
 		return nil, fmt.Errorf("cannot get item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.VectorLength)

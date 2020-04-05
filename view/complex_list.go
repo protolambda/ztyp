@@ -163,6 +163,17 @@ type ComplexListView struct {
 	*ComplexListTypeDef
 }
 
+func AsComplexList(v View, err error) (*ComplexListView, error) {
+	if err != nil {
+		return nil, err
+	}
+	c, ok := v.(*ComplexListView)
+	if ok {
+		return nil, fmt.Errorf("view is not a list: %v", v)
+	}
+	return c, nil
+}
+
 func (tv *ComplexListView) Append(v View) error {
 	ll, err := tv.Length()
 	if err != nil {

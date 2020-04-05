@@ -68,6 +68,17 @@ func (td SmallByteVecMeta) String() string {
 
 type SmallByteVecView []byte
 
+func AsSmallByteVec(v View, err error) (SmallByteVecView, error) {
+	if err != nil {
+		return nil, err
+	}
+	data, ok := v.(SmallByteVecView)
+	if ok {
+		return nil, fmt.Errorf("not a small byte vec view: %v", v)
+	}
+	return data, nil
+}
+
 func (v SmallByteVecView) SetBacking(b Node) error {
 	return errors.New("cannot set backing of SmallByteVecView")
 }
@@ -104,3 +115,47 @@ func (v SmallByteVecView) Type() TypeDef {
 const Bytes4Type SmallByteVecMeta = 4
 const Bytes8Type SmallByteVecMeta = 8
 const Bytes16Type SmallByteVecMeta = 16
+
+// Go could use generics...
+
+func AsBytes4(v View, err error) ([4]byte, error) {
+	const byteLen = 4
+	data, err := AsSmallByteVec(v, err)
+	if err != nil {
+		return [byteLen]byte{}, err
+	}
+	if len(data) != byteLen {
+		return [byteLen]byte{}, fmt.Errorf("expected %d byte long small byte vec, got %d byte long", byteLen, len(data))
+	}
+	var out [byteLen]byte
+	copy(out[:], data)
+	return out, nil
+}
+
+func AsBytes8(v View, err error) ([8]byte, error) {
+	const byteLen = 8
+	data, err := AsSmallByteVec(v, err)
+	if err != nil {
+		return [byteLen]byte{}, err
+	}
+	if len(data) != byteLen {
+		return [byteLen]byte{}, fmt.Errorf("expected %d byte long small byte vec, got %d byte long", byteLen, len(data))
+	}
+	var out [byteLen]byte
+	copy(out[:], data)
+	return out, nil
+}
+
+func AsBytes16(v View, err error) ([16]byte, error) {
+	const byteLen = 16
+	data, err := AsSmallByteVec(v, err)
+	if err != nil {
+		return [byteLen]byte{}, err
+	}
+	if len(data) != byteLen {
+		return [byteLen]byte{}, fmt.Errorf("expected %d byte long small byte vec, got %d byte long", byteLen, len(data))
+	}
+	var out [byteLen]byte
+	copy(out[:], data)
+	return out, nil
+}

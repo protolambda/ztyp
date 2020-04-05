@@ -9,10 +9,8 @@ func basicElemReadonlyIter(anchor Node, length uint64, depth uint8, elemType Bas
 	i := uint64(0)
 	// max 32 elements per bottom nodes, uint8 is safe.
 	perNode := 32 / uint8(elemType.TypeByteLength())
-	j := uint8(i) % perNode
-	if j == 0 {
-		j = perNode
-	}
+	j := perNode
+
 	if limit := (uint64(1) << depth) * uint64(perNode); limit < length {
 		return ErrElemIter{fmt.Errorf("cannot handle iterate length %d bottom subviews (%d per node) in subtree of depth %d deep (limit %d subviews)", length, perNode, depth, limit)}
 	}

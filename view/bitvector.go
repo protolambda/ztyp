@@ -111,6 +111,17 @@ type BitVectorView struct {
 	*BitVectorTypeDef
 }
 
+func AsBitVector(v View, err error) (*BitVectorView, error) {
+	if err != nil {
+		return nil, err
+	}
+	bv, ok := v.(*BitVectorView)
+	if ok {
+		return nil, fmt.Errorf("view is not a bitvector: %v", v)
+	}
+	return bv, nil
+}
+
 func (tv *BitVectorView) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {
 	bottomIndex, subIndex = i>>8, uint8(i)
 	v, err := tv.SubtreeView.GetNode(bottomIndex)

@@ -131,6 +131,17 @@ type BasicListView struct {
 	*BasicListTypeDef
 }
 
+func AsBasicList(v View, err error) (*BasicListView, error) {
+	if err != nil {
+		return nil, err
+	}
+	bv, ok := v.(*BasicListView)
+	if ok {
+		return nil, fmt.Errorf("view is not a basic list: %v", v)
+	}
+	return bv, nil
+}
+
 func (tv *BasicListView) ViewRoot(h HashFn) Root {
 	return tv.BackingNode.MerkleRoot(h)
 }

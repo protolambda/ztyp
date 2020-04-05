@@ -46,6 +46,8 @@ func bitReadonlyIter(anchor Node, length uint64, depth uint8) BitIter {
 		if j > 0 {
 			elByte := currentRoot[j >> 3]
 			elem = ((elByte >> (j & 7)) & 1) == 1
+			// overflow is a feature here: no more than 256 bits
+			// (255 here, 1 at index 0 at the entry of the bottom node)
 			j += 1
 			i += 1
 			return elem, true, nil

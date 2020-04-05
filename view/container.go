@@ -195,6 +195,17 @@ type ContainerView struct {
 	*ContainerTypeDef
 }
 
+func AsContainer(v View, err error) (*ContainerView, error) {
+	if err != nil {
+		return nil, err
+	}
+	c, ok := v.(*ContainerView)
+	if ok {
+		return nil, fmt.Errorf("view is not a container: %v", v)
+	}
+	return c, nil
+}
+
 func (tv *ContainerView) Copy() (View, error) {
 	tvCopy := *tv
 	tvCopy.Hook = nil
