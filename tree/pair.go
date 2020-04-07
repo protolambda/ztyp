@@ -94,26 +94,16 @@ func (c *PairNode) Setter(target Gindex, expand bool) (Link, error) {
 		link = c.RebindLeft
 		node = c.LeftChild
 	}
-	depth -= 2
-	if node.IsLeaf() {
-		if !expand {
-			return nil, NavigationError
-		}
-		child := ZeroNode(depth)
-		node = NewPairNode(child, child)
-	}
+	depth -= 1
 	// now on to the second child bit: gindex 4/6 vs 5/7
-	right, _ = iter.Next()
 	var err error
 	for {
-		if right {
-			node, err = node.Right()
-		} else {
-			node, err = node.Left()
+		var ok bool
+		right, ok = iter.Next()
+		if !ok {
+			break
 		}
-		if err != nil {
-			return nil, err
-		}
+		depth -= 1
 		if node.IsLeaf() {
 			if !expand {
 				return nil, NavigationError
@@ -123,15 +113,14 @@ func (c *PairNode) Setter(target Gindex, expand bool) (Link, error) {
 		}
 		if right {
 			link = link.Wrap(node.RebindRight)
+			node, err = node.Right()
 		} else {
 			link = link.Wrap(node.RebindLeft)
+			node, err = node.Left()
 		}
-		var ok bool
-		right, ok = iter.Next()
-		if !ok {
-			break
+		if err != nil {
+			return nil, err
 		}
-		depth -= 1
 	}
 	if depth != 0 {
 		panic("expected 0 depth at end of setter depth traversal")

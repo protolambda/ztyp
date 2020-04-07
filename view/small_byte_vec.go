@@ -73,7 +73,7 @@ func AsSmallByteVec(v View, err error) (SmallByteVecView, error) {
 		return nil, err
 	}
 	data, ok := v.(SmallByteVecView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("not a small byte vec view: %v", v)
 	}
 	return data, nil

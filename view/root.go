@@ -67,7 +67,7 @@ func AsRoot(v View, err error) (Root, error) {
 		return Root{}, err
 	}
 	r, ok := v.(*RootView)
-	if ok {
+	if !ok {
 		return Root{}, fmt.Errorf("not a root view: %v", v)
 	}
 	return Root(*r), nil

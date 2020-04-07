@@ -35,6 +35,8 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 			maxSize += OffsetByteLength + f.Type.MaxByteLength()
 		}
 	}
+	minSize += fixedPart
+	maxSize += fixedPart
 	size := uint64(0)
 	isFixedSize := offsetsCount == 0
 	if isFixedSize {
@@ -150,6 +152,7 @@ func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 			if uint64(offset) > scope {
 				return nil, fmt.Errorf("offset %d of field %d is too big for scope %d", offset, i, scope)
 			}
+			prevOffset = offset
 			offsets = append(offsets, offsetField{index: i, offset: offset})
 		}
 	}
@@ -200,7 +203,7 @@ func AsContainer(v View, err error) (*ContainerView, error) {
 		return nil, err
 	}
 	c, ok := v.(*ContainerView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("view is not a container: %v", v)
 	}
 	return c, nil
@@ -296,6 +299,24 @@ func (tv *ContainerView) Iter() ElemIter {
 			return nil, false, nil
 		}
 	})
+}
+
+func (tv *ContainerView) FieldValues() ([]View, error) {
+	values := make([]View, len(tv.Fields), len(tv.Fields))
+	iter := tv.ReadonlyIter()
+	i := 0
+	for {
+		el, ok, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		values[i] = el
+		i++
+	}
+	return values, nil
 }
 
 func (tv *ContainerView) ReadonlyIter() ElemIter {

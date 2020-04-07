@@ -168,7 +168,7 @@ func AsComplexList(v View, err error) (*ComplexListView, error) {
 		return nil, err
 	}
 	c, ok := v.(*ComplexListView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("view is not a list: %v", v)
 	}
 	return c, nil

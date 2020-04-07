@@ -155,7 +155,7 @@ func AsBitList(v View, err error) (*BitListView, error) {
 		return nil, err
 	}
 	bv, ok := v.(*BitListView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("view is not a bitlist: %v", v)
 	}
 	return bv, nil

@@ -126,7 +126,7 @@ func AsBasicVector(v View, err error) (*BasicVectorView, error) {
 		return nil, err
 	}
 	bv, ok := v.(*BasicVectorView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("view is not a basic vector: %v", v)
 	}
 	return bv, nil

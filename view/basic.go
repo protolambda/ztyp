@@ -161,7 +161,7 @@ func AsUint8(v View, err error) (Uint8View, error) {
 		return 0, err
 	}
 	n, ok := v.(Uint8View)
-	if ok {
+	if !ok {
 		return 0, fmt.Errorf("not a uint8 view: %v", v)
 	}
 	return n, nil
@@ -226,7 +226,7 @@ func AsUint16(v View, err error) (Uint16View, error) {
 		return 0, err
 	}
 	n, ok := v.(Uint16View)
-	if ok {
+	if !ok {
 		return 0, fmt.Errorf("not a uint8 view: %v", v)
 	}
 	return n, nil
@@ -281,7 +281,7 @@ func AsUint32(v View, err error) (Uint32View, error) {
 		return 0, err
 	}
 	n, ok := v.(Uint32View)
-	if ok {
+	if !ok {
 		return 0, fmt.Errorf("not a uint8 view: %v", v)
 	}
 	return n, nil
@@ -336,7 +336,7 @@ func AsUint64(v View, err error) (Uint64View, error) {
 		return 0, err
 	}
 	n, ok := v.(Uint64View)
-	if ok {
+	if !ok {
 		return 0, fmt.Errorf("not a uint8 view: %v", v)
 	}
 	return n, nil
@@ -469,7 +469,7 @@ func AsBool(v View, err error) (BoolView, error) {
 		return false, err
 	}
 	b, ok := v.(BoolView)
-	if ok {
+	if !ok {
 		return false, fmt.Errorf("not a bool view: %v", v)
 	}
 	return b, nil

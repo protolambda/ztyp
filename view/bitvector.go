@@ -116,7 +116,7 @@ func AsBitVector(v View, err error) (*BitVectorView, error) {
 		return nil, err
 	}
 	bv, ok := v.(*BitVectorView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("view is not a bitvector: %v", v)
 	}
 	return bv, nil
@@ -155,25 +155,6 @@ func (tv *BitVectorView) Set(i uint64, v BoolView) error {
 		return err
 	}
 	return tv.SubtreeView.SetNode(bottomIndex, v.BackingFromBitfieldBase(r, subIndex))
-}
-
-// Shifts the bitvector contents to the right, clipping off the overflow. Only supported for small BitVectors.
-func (tv *BitVectorView) ShRight(sh uint8) error {
-	if tv.BitLength > 8 {
-		return fmt.Errorf("shifting large bitvectors is unsupported")
-	}
-	v, err := tv.SubtreeView.GetNode(0)
-	if err != nil {
-		return err
-	}
-	r, ok := v.(*Root)
-	if !ok {
-		return fmt.Errorf("bitvector bottom node is not a root, cannot perform bitshift")
-	}
-	newRoot := *r
-	// Mask to clip off bits.
-	newRoot[0] = (newRoot[0] << sh) & ((1 << tv.BitLength) - 1)
-	return tv.SubtreeView.SetNode(0, &newRoot)
 }
 
 func (tv *BitVectorView) Copy() (View, error) {

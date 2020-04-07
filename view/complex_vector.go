@@ -156,7 +156,7 @@ func AsComplexVector(v View, err error) (*ComplexVectorView, error) {
 		return nil, err
 	}
 	c, ok := v.(*ComplexVectorView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("view is not a vector: %v", v)
 	}
 	return c, nil

@@ -136,7 +136,7 @@ func AsBasicList(v View, err error) (*BasicListView, error) {
 		return nil, err
 	}
 	bv, ok := v.(*BasicListView)
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("view is not a basic list: %v", v)
 	}
 	return bv, nil
