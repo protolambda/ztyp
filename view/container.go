@@ -27,7 +27,10 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 	offsetsCount := uint64(0)
 	for _, f := range fields {
 		if f.Type.IsFixedByteLength() {
-			fixedPart += f.Type.TypeByteLength()
+			size := f.Type.TypeByteLength()
+			fixedPart += size
+			minSize += size
+			maxSize += size
 		} else {
 			offsetsCount += 1
 			fixedPart += OffsetByteLength
@@ -35,13 +38,9 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 			maxSize += OffsetByteLength + f.Type.MaxByteLength()
 		}
 	}
-	minSize += fixedPart
-	maxSize += fixedPart
 	size := uint64(0)
 	isFixedSize := offsetsCount == 0
 	if isFixedSize {
-		minSize = fixedPart
-		maxSize = fixedPart
 		size = fixedPart
 	}
 	return &ContainerTypeDef{
