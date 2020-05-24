@@ -83,7 +83,12 @@ func (r *RootView) Backing() Node {
 }
 
 func (r *RootView) SetBacking(b Node) error {
-	return NavigationError
+	if br, ok := b.(*Root); ok {
+		*r = RootView(*br)
+		return nil
+	} else {
+		return NavigationError
+	}
 }
 
 func (r *RootView) Copy() (View, error) {

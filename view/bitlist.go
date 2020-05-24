@@ -16,7 +16,7 @@ func BitListType(limit uint64) *BitListTypeDef {
 	return &BitListTypeDef{
 		BitLimit: limit,
 		ComplexTypeBase: ComplexTypeBase{
-			MinSize:     1,  // 1 byte, to do the 1 delimiting bit
+			MinSize:     1, // 1 byte, to do the 1 delimiting bit
 			MaxSize:     (limit + 7 + 1) / 8,
 			Size:        0,
 			IsFixedSize: false,
@@ -57,10 +57,10 @@ func (td *BitListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, er
 				ViewBase: ViewBase{
 					TypeDef: td,
 				},
-				Hook: hook,
+				Hook:        hook,
 				BackingNode: node,
 			},
-			depth:       depth + 1, // +1 for length mix-in
+			depth: depth + 1, // +1 for length mix-in
 		},
 		BitListTypeDef: td,
 	}, nil
@@ -143,7 +143,6 @@ func ByteBitIndex(v byte) (out uint64) {
 func (td *BitListTypeDef) String() string {
 	return fmt.Sprintf("Bitist[%d]", td.BitLimit)
 }
-
 
 type BitListView struct {
 	SubtreeView
@@ -354,7 +353,7 @@ func (tv *BitListView) ReadonlyIter() BitIter {
 		return ErrBitIter{err}
 	}
 	// ignore length mixin in stack
-	return bitReadonlyIter(node, length, tv.depth - 1)
+	return bitReadonlyIter(node, length, tv.depth-1)
 }
 
 func (tv *BitListView) ValueByteLength() (uint64, error) {
@@ -378,7 +377,7 @@ func (tv *BitListView) Serialize(w io.Writer) error {
 	byteLength := (bitLength + 7 + 1) / 8
 	contents := make([]byte, byteLength, byteLength)
 	// one less depth, ignore length mix-in. Iteration length without bitlist delimit bit.
-	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, (bitLength + 0xff) >> 8, contents); err != nil {
+	if err := SubtreeIntoBytes(contentsAnchor, tv.depth-1, (bitLength+0xff)>>8, contents); err != nil {
 		return err
 	}
 	// Add delimit bit

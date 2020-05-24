@@ -15,8 +15,8 @@ type FieldDef struct {
 type ContainerTypeDef struct {
 	ComplexTypeBase
 	ContainerName string
-	Fields []FieldDef
-	OffsetsCount uint64
+	Fields        []FieldDef
+	OffsetsCount  uint64
 	FixedPartSize uint64
 }
 
@@ -45,19 +45,19 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 	}
 	return &ContainerTypeDef{
 		ComplexTypeBase: ComplexTypeBase{
-			MinSize: minSize,
-			MaxSize: maxSize,
-			Size: size,
+			MinSize:     minSize,
+			MaxSize:     maxSize,
+			Size:        size,
 			IsFixedSize: isFixedSize,
 		},
 		ContainerName: name,
-		Fields: fields,
-		OffsetsCount: offsetsCount,
+		Fields:        fields,
+		OffsetsCount:  offsetsCount,
 		FixedPartSize: fixedPart,
 	}
 }
 
-func (td *ContainerTypeDef) FromFields(v... View) (*ContainerView, error) {
+func (td *ContainerTypeDef) FromFields(v ...View) (*ContainerView, error) {
 	if len(td.Fields) != len(v) {
 		return nil, fmt.Errorf("expected %d fields, got %d", len(td.Fields), len(v))
 	}
@@ -98,10 +98,10 @@ func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, 
 				ViewBase: ViewBase{
 					TypeDef: td,
 				},
-				Hook: hook,
+				Hook:        hook,
 				BackingNode: node,
 			},
-			depth:       depth,
+			depth: depth,
 		},
 		ContainerTypeDef: td,
 	}, nil
@@ -121,7 +121,7 @@ func (td *ContainerTypeDef) FieldCount() uint64 {
 }
 
 type offsetField struct {
-	index int
+	index  int
 	offset uint32
 }
 
@@ -158,7 +158,7 @@ func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 	// Deserialize the dynamic part: for each offset, get the size and deserialize the element
 	for i, item := range offsets {
 		var size uint32
-		if i + 1 == len(offsets) {
+		if i+1 == len(offsets) {
 			size = uint32(scope) - item.offset
 		} else {
 			size = offsets[i+1].offset - item.offset
@@ -190,7 +190,6 @@ func (td *ContainerTypeDef) TypeRepr() string {
 	}
 	return buf.String()
 }
-
 
 type ContainerView struct {
 	SubtreeView
@@ -239,7 +238,7 @@ func (tv *ContainerView) ValueByteLength() (uint64, error) {
 
 func (tv *ContainerView) Serialize(w io.Writer) error {
 	fieldIter := tv.ReadonlyIter()
-	var	dynFields []View
+	var dynFields []View
 	if !tv.IsFixedSize {
 		dynFields = make([]View, 0, tv.OffsetsCount)
 	}

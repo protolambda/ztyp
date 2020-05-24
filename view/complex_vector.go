@@ -29,15 +29,15 @@ func ComplexVectorType(elemType TypeDef, length uint64) *ComplexVectorTypeDef {
 		ElemType:     elemType,
 		VectorLength: length,
 		ComplexTypeBase: ComplexTypeBase{
-			MinSize: minSize,
-			MaxSize: maxSize,
-			Size: size,
+			MinSize:     minSize,
+			MaxSize:     maxSize,
+			Size:        size,
 			IsFixedSize: isFixedSize,
 		},
 	}
 }
 
-func (td *ComplexVectorTypeDef) FromElements(v... View) (*ComplexVectorView, error) {
+func (td *ComplexVectorTypeDef) FromElements(v ...View) (*ComplexVectorView, error) {
 	if td.VectorLength != uint64(len(v)) {
 		return nil, fmt.Errorf("expected %d elements, got %d", td.VectorLength, len(v))
 	}
@@ -76,10 +76,10 @@ func (td *ComplexVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (Vi
 				ViewBase: ViewBase{
 					TypeDef: td,
 				},
-				Hook: hook,
+				Hook:        hook,
 				BackingNode: node,
 			},
-			depth:       depth,
+			depth: depth,
 		},
 		ComplexVectorTypeDef: td,
 	}, nil
@@ -133,7 +133,7 @@ func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, er
 			}
 			elements[i] = el
 		}
-		el, err := td.ElemType.Deserialize(r, scope - uint64(offsets[lastIndex]))
+		el, err := td.ElemType.Deserialize(r, scope-uint64(offsets[lastIndex]))
 		if err != nil {
 			return nil, err
 		}
@@ -239,10 +239,9 @@ func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
 }
 
 func (tv *ComplexVectorView) Serialize(w io.Writer) error {
-	iter := tv.ReadonlyIter()
 	if tv.IsFixedSize {
-		return serializeComplexFixElemSeries(iter, w)
+		return serializeComplexFixElemSeries(tv.ReadonlyIter(), w)
 	} else {
-		return serializeComplexVarElemSeries(tv.VectorLength, iter, w)
+		return serializeComplexVarElemSeries(tv.VectorLength, tv.ReadonlyIter, w)
 	}
 }

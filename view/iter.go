@@ -144,6 +144,8 @@ func nodeReadonlyIter(anchor Node, length uint64, depth uint8) NodeIter {
 
 func elemReadonlyIter(node Node, length uint64, depth uint8, elemType TypeDef) ElemIter {
 	nodeIter := nodeReadonlyIter(node, length, depth)
+	// Re-use a typed view by changing its backing each iteration step.
+	elemView := elemType.Default(nil)
 	return ElemIterFn(func() (elem View, ok bool, err error) {
 		node, ok, err := nodeIter.Next()
 		if err != nil {
@@ -152,12 +154,17 @@ func elemReadonlyIter(node Node, length uint64, depth uint8, elemType TypeDef) E
 		if !ok {
 			return nil, false, nil
 		}
-		el, err := elemType.ViewFromBacking(node, nil)
-		if err != nil {
-			return nil, false, err
+		if err := elemView.SetBacking(node); err != nil {
+			// Create a new view if we can't re-use the existing view.
+			el, err := elemType.ViewFromBacking(node, nil)
+			if err != nil {
+				return nil, false, err
+			}
+			// Return the actual element
+			return el, true, nil
+		} else {
+			return elemView, true, nil
 		}
-		// Return the actual element
-		return el, true, nil
 	})
 }
 

@@ -26,7 +26,7 @@ func CoverDepth(v uint64) (out uint8) {
 	if v == 0 || v == 1 {
 		return 0
 	}
-	return BitIndex(v - 1) + 1
+	return BitIndex(v-1) + 1
 }
 
 // bitmagic: binary search through a uint64 to find the bit-length

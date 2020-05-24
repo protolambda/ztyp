@@ -40,7 +40,7 @@ func BenchmarkRegInitHash(t *testing.B) {
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
 		r := regView.HashTreeRoot(hFn)
-		res ^= r[0]  // do something with the output, don't ignore it.
+		res ^= r[0] // do something with the output, don't ignore it.
 		//t.Logf("x; %x", r)
 	}
 	t.Logf("res %d", res)
@@ -69,7 +69,7 @@ func BenchmarkRegHash(t *testing.B) {
 			t.Error(err)
 		}
 		r := regView.HashTreeRoot(hFn)
-		res ^= r[0]  // do something with the output, don't ignore it.
+		res ^= r[0] // do something with the output, don't ignore it.
 		//t.Logf("x; %x", r)
 	}
 	t.Logf("res %d", res)

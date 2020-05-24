@@ -7,7 +7,7 @@ import (
 
 type SubtreeView struct {
 	BackedView
-	depth       uint8
+	depth uint8
 }
 
 func (stv *SubtreeView) GetNode(i uint64) (Node, error) {

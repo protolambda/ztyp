@@ -53,7 +53,6 @@ var SigType = BasicVectorType(ByteType, 96)
 var sigBytes = [96]byte{0: 1, 32: 2, 64: 3, 95: 0xff}
 var SigView, _ = SigType.Deserialize(bytes.NewReader(sigBytes[:]), 96)
 
-
 func chunk(v string) string {
 	res := [32]byte{}
 	data, _ := hex.DecodeString(v)
@@ -145,7 +144,7 @@ func init() {
 	testCases = []sszTestCase{
 		{"bool F", BoolView(false), "00", chunk("00")},
 		{"bool T", BoolView(true), "01", chunk("01")},
-    	{"bitlist empty", BitListType(8).New(), "01", h(chunk(""), chunk("00"))},
+		{"bitlist empty", BitListType(8).New(), "01", h(chunk(""), chunk("00"))},
 		{"bitvector TTFTFTFF", bitvec("TTFTFTFF"), "2b", chunk("2b")},
 		{"bitlist TTFTFTFF", bitlist("TTFTFTFF", 8), "2b01", h(chunk("2b"), chunk("08"))},
 		{"bitvector FTFT", bitvec("FTFT"), "0a", chunk("0a")},
@@ -178,50 +177,50 @@ func init() {
 		{"uint32 01234567", Uint32View(0x01234567), "67452301", chunk("67452301")},
 		{"uint64 0000000000000000", Uint64View(0), "0000000000000000", chunk("0000000000000000")},
 		{"uint64 0123456789abcdef", Uint64View(0x0123456789abcdef), "efcdab8967452301", chunk("efcdab8967452301")},
-	// TODO: bytelist type/view that is not backed by a tree, but makes the tree on demand, possible optimization.
-	//	("bytes48", Vector[byte, 48], Vector[byte, 48](*range(48)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
-    // h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f00000000000000000000000000000000")),
-    //("raw bytes48", ByteVector[48], ByteVector[48](*range(48)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
-    // h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f00000000000000000000000000000000")),
-    //("small empty bytelist", List[byte, 10], List[byte, 10](), "", h(chunk(""), chunk("00"))),
-    //("big empty bytelist", List[byte, 2048], List[byte, 2048](), "", h(zero_hashes[6], chunk("00"))),
-    //("raw small empty bytelist", ByteList[10], ByteList[10](), "", h(chunk(""), chunk("00"))),
-    //("raw big empty bytelist", ByteList[2048], ByteList[2048](), "", h(zero_hashes[6], chunk("00"))),
-    //("bytelist 7", List[byte, 7], List[byte, 7](*range(7)), "00010203040506",
-    // h(chunk("00010203040506"), chunk("07"))),
-    //("raw bytelist 7", ByteList[7], ByteList[7](*range(7)), "00010203040506",
-    // h(chunk("00010203040506"), chunk("07"))),
-    //("bytelist 50", List[byte, 50], List[byte, 50](*range(50)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031",
-    // h(h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f30310000000000000000000000000000"), chunk("32"))),
-    //("raw bytelist 50", ByteList[50], ByteList[50](*range(50)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031",
-    // h(h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f30310000000000000000000000000000"), chunk("32"))),
-    //("bytelist 6/256", List[byte, 256], List[byte, 256](*range(6)), "000102030405",
-    // h(h(h(h(chunk("000102030405"), zero_hashes[0]), zero_hashes[1]), zero_hashes[2]), chunk("06"))),
-    //("raw bytelist 6/256", ByteList[256], List[byte, 256](*range(6)), "000102030405",
-    // h(h(h(h(chunk("000102030405"), zero_hashes[0]), zero_hashes[1]), zero_hashes[2]), chunk("06"))),
-    //("sig", Vector[byte, 96], Vector[byte, 96](*sig_test_data),
-    // "0100000000000000000000000000000000000000000000000000000000000000"
-    // "0200000000000000000000000000000000000000000000000000000000000000"
-    // "03000000000000000000000000000000000000000000000000000000000000ff",
-    // h(h(chunk("01"), chunk("02")),
-    //   h("03000000000000000000000000000000000000000000000000000000000000ff", chunk("")))),
-	//{"sig", [96]byte{0: 1, 32: 2, 64: 3, 95: 0xff},
-	//"01" + repeat("00", 31) + "02" + repeat("00", 31) + "03" + repeat("00", 30) + "ff",
-	//h(h(chunk("01"), chunk("02")), h("03"+repeat("00", 30)+"ff", chunk("")))},
-    //("raw sig", ByteVector[96], ByteVector[96](*sig_test_data),
-    // "0100000000000000000000000000000000000000000000000000000000000000"
-    // "0200000000000000000000000000000000000000000000000000000000000000"
-    // "03000000000000000000000000000000000000000000000000000000000000ff",
-    // h(h(chunk("01"), chunk("02")),
-    //   h("03000000000000000000000000000000000000000000000000000000000000ff", chunk("")))),
-    //("3 sigs", Vector[ByteVector[96], 3], Vector[ByteVector[96], 3](
-    //    [1] + [0 for i in range(95)],
-    //    [2] + [0 for i in range(95)],
-    //    [3] + [0 for i in range(95)]
-    //),
-    // "01" + ("00" * 95) + "02" + ("00" * 95) + "03" + ("00" * 95),
-    // h(h(h(h(chunk("01"), chunk("")), zero_hashes[1]), h(h(chunk("02"), chunk("")), zero_hashes[1])),
-    //   h(h(h(chunk("03"), chunk("")), zero_hashes[1]), chunk("")))),
+		// TODO: bytelist type/view that is not backed by a tree, but makes the tree on demand, possible optimization.
+		//	("bytes48", Vector[byte, 48], Vector[byte, 48](*range(48)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+		// h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f00000000000000000000000000000000")),
+		//("raw bytes48", ByteVector[48], ByteVector[48](*range(48)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+		// h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f00000000000000000000000000000000")),
+		//("small empty bytelist", List[byte, 10], List[byte, 10](), "", h(chunk(""), chunk("00"))),
+		//("big empty bytelist", List[byte, 2048], List[byte, 2048](), "", h(zero_hashes[6], chunk("00"))),
+		//("raw small empty bytelist", ByteList[10], ByteList[10](), "", h(chunk(""), chunk("00"))),
+		//("raw big empty bytelist", ByteList[2048], ByteList[2048](), "", h(zero_hashes[6], chunk("00"))),
+		//("bytelist 7", List[byte, 7], List[byte, 7](*range(7)), "00010203040506",
+		// h(chunk("00010203040506"), chunk("07"))),
+		//("raw bytelist 7", ByteList[7], ByteList[7](*range(7)), "00010203040506",
+		// h(chunk("00010203040506"), chunk("07"))),
+		//("bytelist 50", List[byte, 50], List[byte, 50](*range(50)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031",
+		// h(h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f30310000000000000000000000000000"), chunk("32"))),
+		//("raw bytelist 50", ByteList[50], ByteList[50](*range(50)), "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031",
+		// h(h("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", "202122232425262728292a2b2c2d2e2f30310000000000000000000000000000"), chunk("32"))),
+		//("bytelist 6/256", List[byte, 256], List[byte, 256](*range(6)), "000102030405",
+		// h(h(h(h(chunk("000102030405"), zero_hashes[0]), zero_hashes[1]), zero_hashes[2]), chunk("06"))),
+		//("raw bytelist 6/256", ByteList[256], List[byte, 256](*range(6)), "000102030405",
+		// h(h(h(h(chunk("000102030405"), zero_hashes[0]), zero_hashes[1]), zero_hashes[2]), chunk("06"))),
+		//("sig", Vector[byte, 96], Vector[byte, 96](*sig_test_data),
+		// "0100000000000000000000000000000000000000000000000000000000000000"
+		// "0200000000000000000000000000000000000000000000000000000000000000"
+		// "03000000000000000000000000000000000000000000000000000000000000ff",
+		// h(h(chunk("01"), chunk("02")),
+		//   h("03000000000000000000000000000000000000000000000000000000000000ff", chunk("")))),
+		//{"sig", [96]byte{0: 1, 32: 2, 64: 3, 95: 0xff},
+		//"01" + repeat("00", 31) + "02" + repeat("00", 31) + "03" + repeat("00", 30) + "ff",
+		//h(h(chunk("01"), chunk("02")), h("03"+repeat("00", 30)+"ff", chunk("")))},
+		//("raw sig", ByteVector[96], ByteVector[96](*sig_test_data),
+		// "0100000000000000000000000000000000000000000000000000000000000000"
+		// "0200000000000000000000000000000000000000000000000000000000000000"
+		// "03000000000000000000000000000000000000000000000000000000000000ff",
+		// h(h(chunk("01"), chunk("02")),
+		//   h("03000000000000000000000000000000000000000000000000000000000000ff", chunk("")))),
+		//("3 sigs", Vector[ByteVector[96], 3], Vector[ByteVector[96], 3](
+		//    [1] + [0 for i in range(95)],
+		//    [2] + [0 for i in range(95)],
+		//    [3] + [0 for i in range(95)]
+		//),
+		// "01" + ("00" * 95) + "02" + ("00" * 95) + "03" + ("00" * 95),
+		// h(h(h(h(chunk("01"), chunk("")), zero_hashes[1]), h(h(chunk("02"), chunk("")), zero_hashes[1])),
+		//   h(h(h(chunk("03"), chunk("")), zero_hashes[1]), chunk("")))),
 		{"singleFieldTestStruct", viewMust(SingleFieldTestStructType.FromFields(Uint16View(0xab))), "ab", chunk("ab")},
 
 		{"uint16 list", viewMust(BasicListType(Uint16Type, 32).FromElements(Uint16View(0xaabb), Uint16View(0xc0ad), Uint16View(0xeeff))), "bbaaadc0ffee",
@@ -304,7 +303,7 @@ func init() {
 		{"var element list", viewMust(ComplexListType(VarTestStructType, 8).FromElements(
 			viewMust(VarTestStructType.FromFields(Uint16View(0xdead), viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))), Uint8View(0x11))),
 			viewMust(VarTestStructType.FromFields(Uint16View(0xbeef), viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(4), Uint16View(5), Uint16View(6))), Uint8View(0x22))),
-			)),
+		)),
 			"08000000" + "15000000" +
 				"adde0700000011010002000300" +
 				"efbe0700000022040005000600",
@@ -426,7 +425,6 @@ func init() {
 			)},
 	}
 }
-
 
 func TestEncode(t *testing.T) {
 	var buf bytes.Buffer

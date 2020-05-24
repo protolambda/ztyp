@@ -5,7 +5,6 @@ import (
 	. "github.com/protolambda/ztyp/tree"
 )
 
-
 type ErrBitIter struct {
 	error
 }
@@ -14,7 +13,7 @@ func (e ErrBitIter) Next() (elem bool, ok bool, err error) {
 	return false, false, e.error
 }
 
-type BitIterFn  func() (elem bool, ok bool, err error)
+type BitIterFn func() (elem bool, ok bool, err error)
 
 func (f BitIterFn) Next() (elem bool, ok bool, err error) {
 	return f()
@@ -44,7 +43,7 @@ func bitReadonlyIter(anchor Node, length uint64, depth uint8) BitIter {
 		}
 		// in the middle of a node currently? finish that first
 		if j > 0 {
-			elByte := currentRoot[j >> 3]
+			elByte := currentRoot[j>>3]
 			elem = ((elByte >> (j & 7)) & 1) == 1
 			// overflow is a feature here: no more than 256 bits
 			// (255 here, 1 at index 0 at the entry of the bottom node)
@@ -93,7 +92,7 @@ func bitReadonlyIter(anchor Node, length uint64, depth uint8) BitIter {
 		currentRoot = *r
 
 		// get the first bit
-		el := currentRoot[0] & 1 == 1
+		el := currentRoot[0]&1 == 1
 		// indicate that we have done one bit, and need to read more
 		j = 1
 		// And that the next root will be 1 after

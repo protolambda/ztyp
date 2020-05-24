@@ -18,15 +18,15 @@ func BasicVectorType(elemType BasicTypeDef, length uint64) *BasicVectorTypeDef {
 		ElemType:     elemType,
 		VectorLength: length,
 		ComplexTypeBase: ComplexTypeBase{
-			MinSize: size,
-			MaxSize: size,
-			Size: size,
+			MinSize:     size,
+			MaxSize:     size,
+			Size:        size,
 			IsFixedSize: true,
 		},
 	}
 }
 
-func (td *BasicVectorTypeDef) FromElements(v... BasicView) (*BasicVectorView, error) {
+func (td *BasicVectorTypeDef) FromElements(v ...BasicView) (*BasicVectorView, error) {
 	length := uint64(len(v))
 	if length > td.VectorLength {
 		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.VectorLength, length)
@@ -62,10 +62,10 @@ func (td *BasicVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (View
 				ViewBase: ViewBase{
 					TypeDef: td,
 				},
-				Hook: hook,
+				Hook:        hook,
 				BackingNode: node,
 			},
-			depth:       depth,
+			depth: depth,
 		},
 		BasicVectorTypeDef: td,
 	}, nil

@@ -56,10 +56,10 @@ func (td *BitVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, 
 				ViewBase: ViewBase{
 					TypeDef: td,
 				},
-				Hook: hook,
+				Hook:        hook,
 				BackingNode: node,
 			},
-			depth:       depth,
+			depth: depth,
 		},
 		BitVectorTypeDef: td,
 	}, nil
@@ -86,9 +86,9 @@ func (td *BitVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 	if _, err := r.Read(contents); err != nil {
 		return nil, err
 	}
-	if scope != 0 && td.BitLength & 7 != 0 {
+	if scope != 0 && td.BitLength&7 != 0 {
 		last := contents[scope-1]
-		if last & byte((uint16(1) << (td.BitLength & 7)) - 1) != last {
+		if last&byte((uint16(1)<<(td.BitLength&7))-1) != last {
 			return nil, fmt.Errorf("last bitvector byte %d has out of bounds bits set", last)
 		}
 	}

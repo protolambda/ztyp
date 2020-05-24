@@ -32,7 +32,7 @@ func ComplexListType(elemType TypeDef, limit uint64) *ComplexListTypeDef {
 	}
 }
 
-func (td *ComplexListTypeDef) FromElements(v... View) (*ComplexListView, error) {
+func (td *ComplexListTypeDef) FromElements(v ...View) (*ComplexListView, error) {
 	if uint64(len(v)) > td.ListLimit {
 		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
 	}
@@ -97,7 +97,7 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 		if length > td.ListLimit {
 			return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
 		}
-		if expected := length*elemSize; expected != scope {
+		if expected := length * elemSize; expected != scope {
 			return nil, fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
 		}
 		elements := make([]View, length, length)
@@ -114,7 +114,7 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 		if err != nil {
 			return nil, err
 		}
-		if firstOffset % OffsetByteLength != 0 {
+		if firstOffset%OffsetByteLength != 0 {
 			return nil, fmt.Errorf("first offset %d does not align to offset length %d", firstOffset, OffsetByteLength)
 		}
 		length := uint64(firstOffset) / OffsetByteLength
@@ -145,7 +145,7 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 			}
 			elements[i] = el
 		}
-		el, err := td.ElemType.Deserialize(r, scope - uint64(offsets[lastIndex]))
+		el, err := td.ElemType.Deserialize(r, scope-uint64(offsets[lastIndex]))
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +338,7 @@ func (tv *ComplexListView) ReadonlyIter() ElemIter {
 		return ErrElemIter{err}
 	}
 	// ignore length mixin in stack
-	return elemReadonlyIter(node, length, tv.depth - 1, tv.ElemType)
+	return elemReadonlyIter(node, length, tv.depth-1, tv.ElemType)
 }
 
 func (tv *ComplexListView) ValueByteLength() (uint64, error) {
@@ -370,15 +370,13 @@ func (tv *ComplexListView) ValueByteLength() (uint64, error) {
 }
 
 func (tv *ComplexListView) Serialize(w io.Writer) error {
-	iter := tv.ReadonlyIter()
 	if tv.ElemType.IsFixedByteLength() {
-		return serializeComplexFixElemSeries(iter, w)
+		return serializeComplexFixElemSeries(tv.ReadonlyIter(), w)
 	} else {
 		length, err := tv.Length()
 		if err != nil {
 			return err
 		}
-		return serializeComplexVarElemSeries(length, iter, w)
+		return serializeComplexVarElemSeries(length, tv.ReadonlyIter, w)
 	}
 }
-

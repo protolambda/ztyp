@@ -107,5 +107,5 @@ type Gindex64BitIter struct {
 
 func (iter *Gindex64BitIter) Next() (right bool, ok bool) {
 	iter.Marker >>= 1
-	return iter.Gindex & iter.Marker != 0, iter.Marker != 0
+	return iter.Gindex&iter.Marker != 0, iter.Marker != 0
 }

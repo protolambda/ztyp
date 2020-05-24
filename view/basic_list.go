@@ -26,7 +26,7 @@ func BasicListType(elemType BasicTypeDef, limit uint64) *BasicListTypeDef {
 	}
 }
 
-func (td *BasicListTypeDef) FromElements(v... BasicView) (*BasicListView, error) {
+func (td *BasicListTypeDef) FromElements(v ...BasicView) (*BasicListView, error) {
 	length := uint64(len(v))
 	if length > td.ListLimit {
 		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
@@ -63,10 +63,10 @@ func (td *BasicListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, 
 				ViewBase: ViewBase{
 					TypeDef: td,
 				},
-				Hook: hook,
+				Hook:        hook,
 				BackingNode: node,
 			},
-			depth:       depth + 1, // +1 for length mix-in
+			depth: depth + 1, // +1 for length mix-in
 		},
 		BasicListTypeDef: td,
 	}, nil
@@ -101,7 +101,7 @@ func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 	if length > td.ListLimit {
 		return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
 	}
-	if expected := length*elemSize; expected != scope {
+	if expected := length * elemSize; expected != scope {
 		return nil, fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
 	}
 	if length == 0 {
@@ -340,7 +340,7 @@ func (tv *BasicListView) ReadonlyIter() ElemIter {
 		return ErrElemIter{err}
 	}
 	// ignore length mixin in stack
-	return basicElemReadonlyIter(node, length, tv.depth - 1, tv.ElemType)
+	return basicElemReadonlyIter(node, length, tv.depth-1, tv.ElemType)
 }
 
 func (tv *BasicListView) ValueByteLength() (uint64, error) {
@@ -366,10 +366,9 @@ func (tv *BasicListView) Serialize(w io.Writer) error {
 	// one less depth, ignore length mix-in
 	perNode := 32 / elemSize
 	nodeCount := (length + perNode - 1) / perNode
-	if err := SubtreeIntoBytes(contentsAnchor, tv.depth - 1, nodeCount, contents); err != nil {
+	if err := SubtreeIntoBytes(contentsAnchor, tv.depth-1, nodeCount, contents); err != nil {
 		return err
 	}
 	_, err = w.Write(contents)
 	return err
 }
-

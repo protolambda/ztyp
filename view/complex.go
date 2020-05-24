@@ -10,9 +10,9 @@ import (
 const OffsetByteLength = 4
 
 type ComplexTypeBase struct {
-	MinSize uint64
-	MaxSize uint64
-	Size uint64
+	MinSize     uint64
+	MaxSize     uint64
+	Size        uint64
 	IsFixedSize bool
 }
 
@@ -80,7 +80,7 @@ func (e ErrNodeIter) Next() (chunk Node, ok bool, err error) {
 	return nil, false, e.error
 }
 
-type NodeIterFn  func() (chunk Node, ok bool, err error)
+type NodeIterFn func() (chunk Node, ok bool, err error)
 
 func (f NodeIterFn) Next() (chunk Node, ok bool, err error) {
 	return f()
@@ -100,7 +100,7 @@ func (e ErrElemIter) Next() (elem View, ok bool, err error) {
 	return nil, false, e.error
 }
 
-type ElemIterFn  func() (elem View, ok bool, err error)
+type ElemIterFn func() (elem View, ok bool, err error)
 
 func (f ElemIterFn) Next() (elem View, ok bool, err error) {
 	return f()
@@ -151,15 +151,14 @@ func serializeComplexFixElemSeries(iter ElemIter, w io.Writer) error {
 	return nil
 }
 
-func serializeComplexVarElemSeries(length uint64, iter ElemIter, w io.Writer) error {
-	elements := make([]View, 0, length)
-
+func serializeComplexVarElemSeries(length uint64, iterFn func() ElemIter, w io.Writer) error {
 	// the previous offset, to calculate a new offset from, starting after the fixed data.
 	prevOffset := length * OffsetByteLength
 
 	// span of the previous var-size element
 	prevSize := uint64(0)
-	// write all offsets, remember the elements
+	iter := iterFn()
+	// write all offsets
 	for {
 		el, ok, err := iter.Next()
 		if err != nil {
@@ -177,12 +176,18 @@ func serializeComplexVarElemSeries(length uint64, iter ElemIter, w io.Writer) er
 			return err
 		}
 		prevSize = elValSize
-		// Queue the actual element to be encoded after the fixed part of the container is encoded.
-		elements = append(elements, el)
 	}
+	iter = iterFn()
 	// now write all elements
-	for _, v := range elements {
-		if err := v.Serialize(w); err != nil {
+	for {
+		el, ok, err := iter.Next()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		if err := el.Serialize(w); err != nil {
 			return err
 		}
 	}

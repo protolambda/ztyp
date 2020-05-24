@@ -7,21 +7,21 @@ import (
 )
 
 type iterTestCase struct {
-	node Node
-	dOffset uint8
-	length uint64
-	depth uint8
+	node     Node
+	dOffset  uint8
+	length   uint64
+	depth    uint8
 	expected []Node
 }
 
 func TestNodeReadonlyIter(t *testing.T) {
 	maxLength := 100
-	treeEnd := maxLength*2
+	treeEnd := maxLength * 2
 	nodes := make([]Node, treeEnd, treeEnd)
 	for i := maxLength; i < treeEnd; i++ {
 		nodes[i] = &Root{uint8(i)}
 	}
-	for i := maxLength-1; i > 0; i-- {
+	for i := maxLength - 1; i > 0; i-- {
 		nodes[i] = NewPairNode(nodes[i*2], nodes[i*2+1])
 	}
 	testCases := make([]iterTestCase, 0)
@@ -34,11 +34,11 @@ func TestNodeReadonlyIter(t *testing.T) {
 			maxLenAtBottom := uint64(1) << (d - dOffset)
 			for l := uint64(0); l <= maxLenAtBottom; l++ {
 				testCases = append(testCases, iterTestCase{
-					node: nodes[top],
-					dOffset: dOffset,
-					length: l,
-					depth: d,
-					expected: nodes[bottomStart:bottomStart+l],
+					node:     nodes[top],
+					dOffset:  dOffset,
+					length:   l,
+					depth:    d,
+					expected: nodes[bottomStart : bottomStart+l],
 				})
 			}
 		}

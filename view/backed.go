@@ -4,7 +4,7 @@ import . "github.com/protolambda/ztyp/tree"
 
 type BackedView struct {
 	ViewBase
-	Hook BackingHook
+	Hook        BackingHook
 	BackingNode Node
 }
 

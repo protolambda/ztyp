@@ -29,9 +29,9 @@ var testCases = []testCase{
 func init() {
 	for i := uint8(4); i < 64; i++ {
 		testCases = append(testCases,
-			testCase{v: (1 << i) - 1, d: i, l: i, i: i-1},
-			testCase{v: 1 << i      , d: i, l: i+1, i: i},
-			testCase{v: (1 << i) + 1, d: i+1, l: i+1, i: i},
+			testCase{v: (1 << i) - 1, d: i, l: i, i: i - 1},
+			testCase{v: 1 << i, d: i, l: i + 1, i: i},
+			testCase{v: (1 << i) + 1, d: i + 1, l: i + 1, i: i},
 		)
 	}
 }
