@@ -1,6 +1,34 @@
 package tree
 
+import (
+	"encoding/hex"
+	"errors"
+	"fmt"
+)
+
 type Root [32]byte
+
+func (r Root) MarshalText() ([]byte, error) {
+	return []byte("0x" + hex.EncodeToString(r[:])), nil
+}
+
+func (r Root) String() string {
+	return "0x" + hex.EncodeToString(r[:])
+}
+
+func (r *Root) UnmarshalText(text []byte) error {
+	if r == nil {
+		return errors.New("cannot decode into nil Root")
+	}
+	if len(text) >= 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X') {
+		text = text[2:]
+	}
+	if len(text) != 64 {
+		return fmt.Errorf("unexpected length string '%s'", string(text))
+	}
+	_, err := hex.Decode(r[:], text)
+	return err
+}
 
 func (r *Root) Left() (Node, error) {
 	return nil, NavigationError
