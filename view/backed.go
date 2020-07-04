@@ -9,7 +9,7 @@ type BackedView struct {
 }
 
 func (v *BackedView) Copy() (View, error) {
-	return v.TypeDef.ViewFromBacking(v.BackingNode, nil)  // copy does not propagate changes to the same hook.
+	return v.TypeDef.ViewFromBacking(v.BackingNode, nil) // copy does not propagate changes to the same hook.
 }
 
 func (v *BackedView) Default(hook BackingHook) (View, error) {
