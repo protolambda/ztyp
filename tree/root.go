@@ -16,6 +16,10 @@ func (r Root) String() string {
 	return "0x" + hex.EncodeToString(r[:])
 }
 
+func (r Root) HashTreeRoot(_ HashFn) Root {
+	return r
+}
+
 func (r *Root) UnmarshalText(text []byte) error {
 	if r == nil {
 		return errors.New("cannot decode into nil Root")
