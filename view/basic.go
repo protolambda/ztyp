@@ -123,7 +123,7 @@ func (td UintMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 		return nil, fmt.Errorf("scope of %d bytes not enough for %s", scope, td.String())
 	}
 	tmp := make([]byte, td, td)
-	_, err := r.Read(tmp)
+	_, err := io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +153,8 @@ const (
 )
 
 var BasicViewNoSetBackingError = errors.New("basic views cannot set new backing")
+
+var BadLengthError = errors.New("scope is wrong")
 
 type Uint8View uint8
 
@@ -197,6 +199,30 @@ func (v Uint8View) ValueByteLength() (uint64, error) {
 func (v Uint8View) Serialize(w io.Writer) error {
 	_, err := w.Write([]byte{byte(v)})
 	return err
+}
+
+func (v Uint8View) Encode() ([]byte, error) {
+	return []byte{byte(v)}, nil
+}
+
+func (v *Uint8View) Deserialize(r io.Reader, scope uint64) error {
+	if scope < 1 {
+		return BadLengthError
+	}
+	var x [1]byte
+	if _, err := io.ReadFull(r, x[:]); err != nil {
+		return err
+	}
+	*v = Uint8View(x[0])
+	return nil
+}
+
+func (v *Uint8View) Decode(x []byte) error {
+	if len(x) != 1 {
+		return BadLengthError
+	}
+	*v = Uint8View(x[0])
+	return nil
 }
 
 func (v Uint8View) HashTreeRoot(h HashFn) Root {
@@ -264,6 +290,32 @@ func (v Uint16View) Serialize(w io.Writer) error {
 	return err
 }
 
+func (v Uint16View) Encode() ([]byte, error) {
+	var out [2]byte
+	binary.LittleEndian.PutUint16(out[:], uint16(v))
+	return out[:], nil
+}
+
+func (v *Uint16View) Deserialize(r io.Reader, scope uint64) error {
+	if scope < 2 {
+		return BadLengthError
+	}
+	var x [2]byte
+	if _, err := io.ReadFull(r, x[:]); err != nil {
+		return err
+	}
+	*v = Uint16View(binary.LittleEndian.Uint16(x[:]))
+	return nil
+}
+
+func (v *Uint16View) Decode(x []byte) error {
+	if len(x) != 2 {
+		return BadLengthError
+	}
+	*v = Uint16View(binary.LittleEndian.Uint16(x[:]))
+	return nil
+}
+
 func (v Uint16View) HashTreeRoot(h HashFn) Root {
 	newRoot := Root{}
 	binary.LittleEndian.PutUint16(newRoot[:], uint16(v))
@@ -317,6 +369,32 @@ func (v Uint32View) ValueByteLength() (uint64, error) {
 func (v Uint32View) Serialize(w io.Writer) error {
 	_, err := w.Write([]byte{byte(v), byte(v >> 8), byte(v >> 16), byte(v >> 24)})
 	return err
+}
+
+func (v Uint32View) Encode() ([]byte, error) {
+	var out [4]byte
+	binary.LittleEndian.PutUint32(out[:], uint32(v))
+	return out[:], nil
+}
+
+func (v *Uint32View) Deserialize(r io.Reader, scope uint64) error {
+	if scope < 4 {
+		return BadLengthError
+	}
+	var x [4]byte
+	if _, err := io.ReadFull(r, x[:]); err != nil {
+		return err
+	}
+	*v = Uint32View(binary.LittleEndian.Uint32(x[:]))
+	return nil
+}
+
+func (v *Uint32View) Decode(x []byte) error {
+	if len(x) != 4 {
+		return BadLengthError
+	}
+	*v = Uint32View(binary.LittleEndian.Uint32(x[:]))
+	return nil
 }
 
 func (v Uint32View) HashTreeRoot(h HashFn) Root {
@@ -374,6 +452,32 @@ func (v Uint64View) Serialize(w io.Writer) error {
 	binary.LittleEndian.PutUint64(b[:], uint64(v))
 	_, err := w.Write(b[:])
 	return err
+}
+
+func (v Uint64View) Encode() ([]byte, error) {
+	var out [8]byte
+	binary.LittleEndian.PutUint64(out[:], uint64(v))
+	return out[:], nil
+}
+
+func (v *Uint64View) Deserialize(r io.Reader, scope uint64) error {
+	if scope < 8 {
+		return BadLengthError
+	}
+	var x [8]byte
+	if _, err := io.ReadFull(r, x[:]); err != nil {
+		return err
+	}
+	*v = Uint64View(binary.LittleEndian.Uint64(x[:]))
+	return nil
+}
+
+func (v *Uint64View) Decode(x []byte) error {
+	if len(x) != 8 {
+		return BadLengthError
+	}
+	*v = Uint64View(binary.LittleEndian.Uint64(x[:]))
+	return nil
 }
 
 func (v Uint64View) HashTreeRoot(h HashFn) Root {
@@ -446,7 +550,7 @@ func (td BoolMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
 		return nil, errors.New("cannot read bool, scope is 0")
 	}
 	b := [1]byte{}
-	_, err := r.Read(b[:])
+	_, err := io.ReadFull(r, b[:])
 	if err != nil {
 		return nil, err
 	}
@@ -531,6 +635,31 @@ func (v BoolView) ValueByteLength() (uint64, error) {
 func (v BoolView) Serialize(w io.Writer) error {
 	_, err := w.Write([]byte{v.byte()})
 	return err
+}
+
+func (v BoolView) Encode() ([]byte, error) {
+	if v {
+		return []byte{1}, nil
+	} else {
+		return []byte{0}, nil
+	}
+}
+
+func (v *BoolView) Deserialize(r io.Reader, scope uint64) error {
+	var x [1]byte
+	if _, err := io.ReadFull(r, x[:]); err != nil {
+		return err
+	}
+	*v = BoolView(x[0] > 0)
+	return nil
+}
+
+func (v *BoolView) Decode(x []byte) error {
+	if len(x) != 1 {
+		return BadLengthError
+	}
+	*v = BoolView(x[0] > 0)
+	return nil
 }
 
 func (v BoolView) HashTreeRoot(h HashFn) Root {

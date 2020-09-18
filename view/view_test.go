@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/tree"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -426,7 +428,7 @@ func init() {
 	}
 }
 
-func TestEncode(t *testing.T) {
+func TestSerializeView(t *testing.T) {
 	var buf bytes.Buffer
 
 	for _, tt := range testCases {
@@ -443,6 +445,69 @@ func TestEncode(t *testing.T) {
 	}
 }
 
+func TestDeserializeSerialize(t *testing.T) {
+	for _, tt := range testCases {
+		v := reflect.New(reflect.TypeOf(tt.value))
+		if _, ok := v.Interface().(codec.Deserializable); ok {
+			t.Run(tt.name, func(t *testing.T) {
+				d := v.Interface().(codec.Deserializable)
+				data, err := hex.DecodeString(tt.hex)
+				if err != nil {
+					t.Fatal(err)
+				}
+				r := bytes.NewReader(data)
+				// For dynamic types, we need to pass the length of the message to the decoder.
+				bytesLen := uint64(len(tt.hex)) / 2
+				if err := d.Deserialize(r, bytesLen); err != nil {
+					t.Fatalf("decoding failed, err: %v", err)
+				}
+				s, ok := d.(codec.Serializable)
+				if !ok {
+					t.Fatal("implemented Deserializable, but not Serializable")
+				}
+				var buf bytes.Buffer
+				if err := s.Serialize(&buf); err != nil {
+					t.Fatal(err)
+				}
+				got := hex.EncodeToString(buf.Bytes())
+				if got != tt.hex {
+					t.Fatalf("got %s, expected %s", got, tt.hex)
+				}
+			})
+		}
+	}
+}
+
+func TestDecodeEncode(t *testing.T) {
+	for _, tt := range testCases {
+		v := reflect.New(reflect.TypeOf(tt.value))
+		if _, ok := v.Interface().(codec.Decodable); ok {
+			t.Run(tt.name, func(t *testing.T) {
+				d := v.Interface().(codec.Decodable)
+				data, err := hex.DecodeString(tt.hex)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := d.Decode(data); err != nil {
+					t.Fatalf("decoding failed, err: %v", err)
+				}
+				s, ok := d.(codec.Encodable)
+				if !ok {
+					t.Fatal("implemented Decodable, but not Encodable")
+				}
+				out, err := s.Encode()
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := hex.EncodeToString(out)
+				if got != tt.hex {
+					t.Fatalf("got %s, expected %s", got, tt.hex)
+				}
+			})
+		}
+	}
+}
+
 func TestValueByteLength(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -456,7 +521,7 @@ func TestValueByteLength(t *testing.T) {
 	}
 }
 
-func TestDecode(t *testing.T) {
+func TestDeserializeView(t *testing.T) {
 	hFn := tree.GetHashFn()
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
