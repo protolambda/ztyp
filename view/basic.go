@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 // A uint type, identified by its size in bytes.
@@ -118,24 +118,20 @@ func (td UintMeta) MaxByteLength() uint64 {
 	return uint64(td)
 }
 
-func (td UintMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	if scope < uint64(td) {
-		return nil, fmt.Errorf("scope of %d bytes not enough for %s", scope, td.String())
-	}
-	tmp := make([]byte, td, td)
-	_, err := io.ReadFull(r, tmp)
-	if err != nil {
-		return nil, err
-	}
+func (td UintMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
 	switch td {
 	case Uint8Type:
-		return Uint8View(tmp[0]), nil
+		v, err := dr.ReadByte()
+		return Uint8View(v), err
 	case Uint16Type:
-		return Uint16View(binary.LittleEndian.Uint16(tmp)), nil
+		v, err := dr.ReadUint16()
+		return Uint16View(v), err
 	case Uint32Type:
-		return Uint32View(binary.LittleEndian.Uint32(tmp)), nil
+		v, err := dr.ReadUint32()
+		return Uint32View(v), err
 	case Uint64Type:
-		return Uint64View(binary.LittleEndian.Uint64(tmp)), nil
+		v, err := dr.ReadUint64()
+		return Uint64View(v), err
 	default:
 		return nil, UnsupportedUintType
 	}
@@ -196,24 +192,20 @@ func (v Uint8View) ValueByteLength() (uint64, error) {
 	return 1, nil
 }
 
-func (v Uint8View) Serialize(w io.Writer) error {
-	_, err := w.Write([]byte{byte(v)})
-	return err
+func (v Uint8View) Serialize(w *codec.EncodingWriter) error {
+	return w.WriteByte(byte(v))
 }
 
 func (v Uint8View) Encode() ([]byte, error) {
 	return []byte{byte(v)}, nil
 }
 
-func (v *Uint8View) Deserialize(r io.Reader, scope uint64) error {
-	if scope < 1 {
-		return BadLengthError
-	}
-	var x [1]byte
-	if _, err := io.ReadFull(r, x[:]); err != nil {
+func (v *Uint8View) Deserialize(r *codec.DecodingReader) error {
+	b, err := r.ReadByte()
+	if err != nil {
 		return err
 	}
-	*v = Uint8View(x[0])
+	*v = Uint8View(b)
 	return nil
 }
 
@@ -285,9 +277,8 @@ func (v Uint16View) ValueByteLength() (uint64, error) {
 	return 2, nil
 }
 
-func (v Uint16View) Serialize(w io.Writer) error {
-	_, err := w.Write([]byte{byte(v), byte(v >> 8)})
-	return err
+func (v Uint16View) Serialize(w *codec.EncodingWriter) error {
+	return w.WriteUint16(uint16(v))
 }
 
 func (v Uint16View) Encode() ([]byte, error) {
@@ -296,15 +287,12 @@ func (v Uint16View) Encode() ([]byte, error) {
 	return out[:], nil
 }
 
-func (v *Uint16View) Deserialize(r io.Reader, scope uint64) error {
-	if scope < 2 {
-		return BadLengthError
-	}
-	var x [2]byte
-	if _, err := io.ReadFull(r, x[:]); err != nil {
+func (v *Uint16View) Deserialize(r *codec.DecodingReader) error {
+	d, err := r.ReadUint16()
+	if err != nil {
 		return err
 	}
-	*v = Uint16View(binary.LittleEndian.Uint16(x[:]))
+	*v = Uint16View(d)
 	return nil
 }
 
@@ -366,9 +354,8 @@ func (v Uint32View) ValueByteLength() (uint64, error) {
 	return 4, nil
 }
 
-func (v Uint32View) Serialize(w io.Writer) error {
-	_, err := w.Write([]byte{byte(v), byte(v >> 8), byte(v >> 16), byte(v >> 24)})
-	return err
+func (v Uint32View) Serialize(w *codec.EncodingWriter) error {
+	return w.WriteUint32(uint32(v))
 }
 
 func (v Uint32View) Encode() ([]byte, error) {
@@ -377,15 +364,12 @@ func (v Uint32View) Encode() ([]byte, error) {
 	return out[:], nil
 }
 
-func (v *Uint32View) Deserialize(r io.Reader, scope uint64) error {
-	if scope < 4 {
-		return BadLengthError
-	}
-	var x [4]byte
-	if _, err := io.ReadFull(r, x[:]); err != nil {
+func (v *Uint32View) Deserialize(r *codec.DecodingReader) error {
+	d, err := r.ReadUint32()
+	if err != nil {
 		return err
 	}
-	*v = Uint32View(binary.LittleEndian.Uint32(x[:]))
+	*v = Uint32View(d)
 	return nil
 }
 
@@ -447,11 +431,8 @@ func (v Uint64View) ValueByteLength() (uint64, error) {
 	return 8, nil
 }
 
-func (v Uint64View) Serialize(w io.Writer) error {
-	b := [8]byte{}
-	binary.LittleEndian.PutUint64(b[:], uint64(v))
-	_, err := w.Write(b[:])
-	return err
+func (v Uint64View) Serialize(w *codec.EncodingWriter) error {
+	return w.WriteUint64(uint64(v))
 }
 
 func (v Uint64View) Encode() ([]byte, error) {
@@ -460,15 +441,12 @@ func (v Uint64View) Encode() ([]byte, error) {
 	return out[:], nil
 }
 
-func (v *Uint64View) Deserialize(r io.Reader, scope uint64) error {
-	if scope < 8 {
-		return BadLengthError
-	}
-	var x [8]byte
-	if _, err := io.ReadFull(r, x[:]); err != nil {
+func (v *Uint64View) Deserialize(r *codec.DecodingReader) error {
+	d, err := r.ReadUint64()
+	if err != nil {
 		return err
 	}
-	*v = Uint64View(binary.LittleEndian.Uint64(x[:]))
+	*v = Uint64View(d)
 	return nil
 }
 
@@ -545,19 +523,15 @@ func (td BoolMeta) MaxByteLength() uint64 {
 	return 1
 }
 
-func (td BoolMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	if scope == 0 {
-		return nil, errors.New("cannot read bool, scope is 0")
-	}
-	b := [1]byte{}
-	_, err := io.ReadFull(r, b[:])
+func (td BoolMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
+	b, err := dr.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	if b[0] > 1 {
-		return nil, fmt.Errorf("invalid bool value: 0x%x", b[0])
+	if b > 1 {
+		return nil, fmt.Errorf("invalid bool value: 0x%x", b)
 	}
-	return BoolView(b[0] == 1), nil
+	return BoolView(b == 1), nil
 }
 
 func (td BoolMeta) String() string {
@@ -632,31 +606,32 @@ func (v BoolView) ValueByteLength() (uint64, error) {
 	return 1, nil
 }
 
-func (v BoolView) Serialize(w io.Writer) error {
-	_, err := w.Write([]byte{v.byte()})
-	return err
+func (v BoolView) Serialize(w *codec.EncodingWriter) error {
+	return w.WriteByte(v.byte())
 }
 
 func (v BoolView) Encode() ([]byte, error) {
-	if v {
-		return []byte{1}, nil
-	} else {
-		return []byte{0}, nil
-	}
+	return []byte{v.byte()}, nil
 }
 
-func (v *BoolView) Deserialize(r io.Reader, scope uint64) error {
-	var x [1]byte
-	if _, err := io.ReadFull(r, x[:]); err != nil {
+func (v *BoolView) Deserialize(r *codec.DecodingReader) error {
+	d, err := r.ReadByte()
+	if err != nil {
 		return err
 	}
-	*v = BoolView(x[0] > 0)
+	if d > 1 {
+		return fmt.Errorf("invalid bool value: 0x%x", d)
+	}
+	*v = BoolView(d > 0)
 	return nil
 }
 
 func (v *BoolView) Decode(x []byte) error {
 	if len(x) != 1 {
 		return BadLengthError
+	}
+	if x[0] > 1 {
+		return fmt.Errorf("invalid bool value: 0x%x", x[0])
 	}
 	*v = BoolView(x[0] > 0)
 	return nil

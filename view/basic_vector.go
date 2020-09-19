@@ -2,8 +2,8 @@ package view
 
 import (
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type BasicVectorTypeDef struct {
@@ -94,12 +94,13 @@ func (td *BasicVectorTypeDef) New() *BasicVectorView {
 	return td.Default(nil).(*BasicVectorView)
 }
 
-func (td *BasicVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
+func (td *BasicVectorTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+	scope := dr.Scope()
 	if td.Size != scope {
 		return nil, fmt.Errorf("expected size %d does not match scope %d", td.Size, scope)
 	}
 	contents := make([]byte, scope, scope)
-	if _, err := r.Read(contents); err != nil {
+	if _, err := dr.Read(contents); err != nil {
 		return nil, err
 	}
 	bottomNodes, err := BytesIntoNodes(contents)
@@ -195,11 +196,10 @@ func (tv *BasicVectorView) ValueByteLength() (uint64, error) {
 	return tv.Size, nil
 }
 
-func (tv *BasicVectorView) Serialize(w io.Writer) error {
+func (tv *BasicVectorView) Serialize(w *codec.EncodingWriter) error {
 	contents := make([]byte, tv.Size, tv.Size)
 	if err := SubtreeIntoBytes(tv.BackingNode, tv.depth, tv.BottomNodeLength(), contents); err != nil {
 		return err
 	}
-	_, err := w.Write(contents)
-	return err
+	return w.Write(contents)
 }

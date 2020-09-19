@@ -3,8 +3,8 @@ package view
 import (
 	"bytes"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type FieldDef struct {
@@ -125,23 +125,28 @@ type offsetField struct {
 	offset uint32
 }
 
-func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
+func (td *ContainerTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
 	fields := make([]View, len(td.Fields), len(td.Fields))
 	offsets := make([]offsetField, 0, td.OffsetsCount)
 	prevOffset := uint32(td.FixedPartSize)
+	scope := dr.Scope()
 	if err := td.checkScope(scope); err != nil {
 		return nil, err
 	}
 	// Deserialize the fixed part: fixed-size fields and offsets to dynamic fields
 	for i, f := range td.Fields {
 		if f.Type.IsFixedByteLength() {
-			v, err := f.Type.Deserialize(r, f.Type.TypeByteLength())
+			sub, err := dr.SubScope(f.Type.TypeByteLength())
+			if err != nil {
+				return nil, err
+			}
+			v, err := f.Type.Deserialize(sub)
 			if err != nil {
 				return nil, err
 			}
 			fields[i] = v
 		} else {
-			offset, err := ReadOffset(r)
+			offset, err := dr.ReadOffset()
 			if err != nil {
 				return nil, err
 			}
@@ -163,7 +168,11 @@ func (td *ContainerTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 		} else {
 			size = offsets[i+1].offset - item.offset
 		}
-		v, err := td.Fields[item.index].Type.Deserialize(r, uint64(size))
+		sub, err := dr.SubScope(uint64(size))
+		if err != nil {
+			return nil, err
+		}
+		v, err := td.Fields[item.index].Type.Deserialize(sub)
 		if err != nil {
 			return nil, err
 		}
@@ -236,7 +245,7 @@ func (tv *ContainerView) ValueByteLength() (uint64, error) {
 	return out, nil
 }
 
-func (tv *ContainerView) Serialize(w io.Writer) error {
+func (tv *ContainerView) Serialize(w *codec.EncodingWriter) error {
 	fieldIter := tv.ReadonlyIter()
 	var dynFields []View
 	if !tv.IsFixedSize {
@@ -265,7 +274,7 @@ func (tv *ContainerView) Serialize(w io.Writer) error {
 			if err != nil {
 				return err
 			}
-			prevOffset, err = WriteOffset(w, prevOffset, prevSize)
+			prevOffset, err = w.WriteOffset(prevOffset, prevSize)
 			if err != nil {
 				return err
 			}

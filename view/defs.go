@@ -1,8 +1,8 @@
 package view
 
 import (
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type View interface {
@@ -10,7 +10,7 @@ type View interface {
 	SetBacking(b Node) error
 	Copy() (View, error)
 	ValueByteLength() (uint64, error)
-	Serialize(w io.Writer) error
+	Serialize(w *codec.EncodingWriter) error
 	HashTreeRoot(h HashFn) Root
 	Type() TypeDef
 }
@@ -42,7 +42,7 @@ type TypeDef interface {
 	TypeByteLength() uint64
 	MinByteLength() uint64
 	MaxByteLength() uint64
-	Deserialize(r io.Reader, scope uint64) (View, error)
+	Deserialize(dr *codec.DecodingReader) (View, error)
 	String() string
 	// TODO: could add navigation by key/index into subtypes
 }

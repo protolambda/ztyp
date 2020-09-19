@@ -53,7 +53,7 @@ var ListStructType = ContainerType("ComplexTestStruct", []FieldDef{
 
 var SigType = BasicVectorType(ByteType, 96)
 var sigBytes = [96]byte{0: 1, 32: 2, 64: 3, 95: 0xff}
-var SigView, _ = SigType.Deserialize(bytes.NewReader(sigBytes[:]), 96)
+var SigView, _ = SigType.Deserialize(codec.NewDecodingReader(bytes.NewReader(sigBytes[:]), 96))
 
 func chunk(v string) string {
 	res := [32]byte{}
@@ -434,7 +434,7 @@ func TestSerializeView(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			buf.Reset()
-			if err := tt.value.Serialize(&buf); err != nil {
+			if err := tt.value.Serialize(codec.NewEncodingWriter(&buf)); err != nil {
 				t.Fatalf("encoding failed, err: %v", err)
 			}
 			data := buf.Bytes()
@@ -458,7 +458,7 @@ func TestDeserializeSerialize(t *testing.T) {
 				r := bytes.NewReader(data)
 				// For dynamic types, we need to pass the length of the message to the decoder.
 				bytesLen := uint64(len(tt.hex)) / 2
-				if err := d.Deserialize(r, bytesLen); err != nil {
+				if err := d.Deserialize(codec.NewDecodingReader(r, bytesLen)); err != nil {
 					t.Fatalf("decoding failed, err: %v", err)
 				}
 				s, ok := d.(codec.Serializable)
@@ -466,7 +466,7 @@ func TestDeserializeSerialize(t *testing.T) {
 					t.Fatal("implemented Deserializable, but not Serializable")
 				}
 				var buf bytes.Buffer
-				if err := s.Serialize(&buf); err != nil {
+				if err := s.Serialize(codec.NewEncodingWriter(&buf)); err != nil {
 					t.Fatal(err)
 				}
 				got := hex.EncodeToString(buf.Bytes())
@@ -534,7 +534,7 @@ func TestDeserializeView(t *testing.T) {
 			// For dynamic types, we need to pass the length of the message to the decoder.
 			bytesLen := uint64(len(tt.hex)) / 2
 
-			dest, err := sszTyp.Deserialize(r, bytesLen)
+			dest, err := sszTyp.Deserialize(codec.NewDecodingReader(r, bytesLen))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -544,7 +544,7 @@ func TestDeserializeView(t *testing.T) {
 				t.Errorf("Hash tree root of deserialized object does not match expected root. Got: %s, expected: %s.", hexRoot, tt.root)
 			}
 			var buf bytes.Buffer
-			if err := dest.Serialize(&buf); err != nil {
+			if err := dest.Serialize(codec.NewEncodingWriter(&buf)); err != nil {
 				t.Errorf("failed to serialize object that was just deserialized: %v", err)
 			}
 			out := hex.EncodeToString(buf.Bytes())

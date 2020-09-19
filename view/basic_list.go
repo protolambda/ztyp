@@ -3,8 +3,8 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type BasicListTypeDef struct {
@@ -95,8 +95,9 @@ func (td *BasicListTypeDef) New() *BasicListView {
 	return td.Default(nil).(*BasicListView)
 }
 
-func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
+func (td *BasicListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
 	elemSize := td.ElemType.TypeByteLength()
+	scope := dr.Scope()
 	length := scope / elemSize
 	if length > td.ListLimit {
 		return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
@@ -108,7 +109,7 @@ func (td *BasicListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error)
 		return td.New(), nil
 	}
 	contents := make([]byte, scope, scope)
-	if _, err := r.Read(contents); err != nil {
+	if _, err := dr.Read(contents); err != nil {
 		return nil, err
 	}
 	bottomNodes, err := BytesIntoNodes(contents)
@@ -351,7 +352,7 @@ func (tv *BasicListView) ValueByteLength() (uint64, error) {
 	return length * tv.ElemType.TypeByteLength(), nil
 }
 
-func (tv *BasicListView) Serialize(w io.Writer) error {
+func (tv *BasicListView) Serialize(w *codec.EncodingWriter) error {
 	contentsAnchor, err := tv.BackingNode.Getter(LeftGindex)
 	if err != nil {
 		return err
@@ -369,6 +370,5 @@ func (tv *BasicListView) Serialize(w io.Writer) error {
 	if err := SubtreeIntoBytes(contentsAnchor, tv.depth-1, nodeCount, contents); err != nil {
 		return err
 	}
-	_, err = w.Write(contents)
-	return err
+	return w.Write(contents)
 }

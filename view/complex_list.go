@@ -3,8 +3,8 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type ComplexListTypeDef struct {
@@ -87,7 +87,8 @@ func (td *ComplexListTypeDef) New() *ComplexListView {
 	return td.Default(nil).(*ComplexListView)
 }
 
-func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
+func (td *ComplexListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+	scope := dr.Scope()
 	if scope == 0 {
 		return td.New(), nil
 	}
@@ -102,7 +103,11 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 		}
 		elements := make([]View, length, length)
 		for i := uint64(0); i < length; i++ {
-			el, err := td.ElemType.Deserialize(r, elemSize)
+			sub, err := dr.SubScope(elemSize)
+			if err != nil {
+				return nil, err
+			}
+			el, err := td.ElemType.Deserialize(sub)
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +115,7 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 		}
 		return td.FromElements(elements...)
 	} else {
-		firstOffset, err := ReadOffset(r)
+		firstOffset, err := dr.ReadOffset()
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +130,7 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 		offsets[0] = firstOffset
 		prevOffset := firstOffset
 		for i := uint64(1); i < length; i++ {
-			offset, err := ReadOffset(r)
+			offset, err := dr.ReadOffset()
 			if err != nil {
 				return nil, err
 			}
@@ -139,13 +144,21 @@ func (td *ComplexListTypeDef) Deserialize(r io.Reader, scope uint64) (View, erro
 		lastIndex := uint32(len(elements) - 1)
 		for i := uint32(0); i < lastIndex; i++ {
 			size := offsets[i+1] - offsets[i]
-			el, err := td.ElemType.Deserialize(r, uint64(size))
+			sub, err := dr.SubScope(uint64(size))
+			if err != nil {
+				return nil, err
+			}
+			el, err := td.ElemType.Deserialize(sub)
 			if err != nil {
 				return nil, err
 			}
 			elements[i] = el
 		}
-		el, err := td.ElemType.Deserialize(r, scope-uint64(offsets[lastIndex]))
+		sub, err := dr.SubScope(scope-uint64(offsets[lastIndex]))
+		if err != nil {
+			return nil, err
+		}
+		el, err := td.ElemType.Deserialize(sub)
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +382,7 @@ func (tv *ComplexListView) ValueByteLength() (uint64, error) {
 	}
 }
 
-func (tv *ComplexListView) Serialize(w io.Writer) error {
+func (tv *ComplexListView) Serialize(w *codec.EncodingWriter) error {
 	if tv.ElemType.IsFixedByteLength() {
 		return serializeComplexFixElemSeries(tv.ReadonlyIter(), w)
 	} else {

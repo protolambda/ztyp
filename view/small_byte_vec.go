@@ -3,8 +3,8 @@ package view
 import (
 	"errors"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 // To represent views of < 32 bytes efficiently as just a slice of those bytes.
@@ -53,12 +53,9 @@ func (td SmallByteVecMeta) MaxByteLength() uint64 {
 	return uint64(td)
 }
 
-func (td SmallByteVecMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	if scope < uint64(td) {
-		return nil, fmt.Errorf("scope of %d not enough for small byte vec of %d bytes", scope, td)
-	}
+func (td SmallByteVecMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
 	v := make(SmallByteVecView, td, td)
-	_, err := r.Read(v)
+	_, err := dr.Read(v)
 	return v, err
 }
 
@@ -97,9 +94,8 @@ func (v SmallByteVecView) ValueByteLength() (uint64, error) {
 	return uint64(len(v)), nil
 }
 
-func (v SmallByteVecView) Serialize(w io.Writer) error {
-	_, err := w.Write(v)
-	return err
+func (v SmallByteVecView) Serialize(w *codec.EncodingWriter) error {
+	return w.Write(v)
 }
 
 func (v SmallByteVecView) HashTreeRoot(h HashFn) Root {

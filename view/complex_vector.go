@@ -2,8 +2,8 @@ package view
 
 import (
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type ComplexVectorTypeDef struct {
@@ -94,7 +94,8 @@ func (td *ComplexVectorTypeDef) New() *ComplexVectorView {
 	return td.Default(nil).(*ComplexVectorView)
 }
 
-func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
+func (td *ComplexVectorTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+	scope := dr.Scope()
 	if td.IsFixedSize {
 		elemSize := td.ElemType.TypeByteLength()
 		if td.Size != scope {
@@ -102,7 +103,11 @@ func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, er
 		}
 		elements := make([]View, td.VectorLength, td.VectorLength)
 		for i := uint64(0); i < td.VectorLength; i++ {
-			el, err := td.ElemType.Deserialize(r, elemSize)
+			sub, err := dr.SubScope(elemSize)
+			if err != nil {
+				return nil, err
+			}
+			el, err := td.ElemType.Deserialize(sub)
 			if err != nil {
 				return nil, err
 			}
@@ -113,7 +118,7 @@ func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, er
 		offsets := make([]uint32, td.VectorLength, td.VectorLength)
 		prevOffset := uint32(0)
 		for i := uint64(0); i < td.VectorLength; i++ {
-			offset, err := ReadOffset(r)
+			offset, err := dr.ReadOffset()
 			if err != nil {
 				return nil, err
 			}
@@ -127,13 +132,21 @@ func (td *ComplexVectorTypeDef) Deserialize(r io.Reader, scope uint64) (View, er
 		lastIndex := uint32(len(elements) - 1)
 		for i := uint32(0); i < lastIndex; i++ {
 			size := offsets[i+1] - offsets[i]
-			el, err := td.ElemType.Deserialize(r, uint64(size))
+			sub, err := dr.SubScope(uint64(size))
+			if err != nil {
+				return nil, err
+			}
+			el, err := td.ElemType.Deserialize(sub)
 			if err != nil {
 				return nil, err
 			}
 			elements[i] = el
 		}
-		el, err := td.ElemType.Deserialize(r, scope-uint64(offsets[lastIndex]))
+		sub, err := dr.SubScope(scope-uint64(offsets[lastIndex]))
+		if err != nil {
+			return nil, err
+		}
+		el, err := td.ElemType.Deserialize(sub)
 		if err != nil {
 			return nil, err
 		}
@@ -238,7 +251,7 @@ func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
 	}
 }
 
-func (tv *ComplexVectorView) Serialize(w io.Writer) error {
+func (tv *ComplexVectorView) Serialize(w *codec.EncodingWriter) error {
 	if tv.IsFixedSize {
 		return serializeComplexFixElemSeries(tv.ReadonlyIter(), w)
 	} else {

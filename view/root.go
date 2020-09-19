@@ -2,8 +2,8 @@ package view
 
 import (
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type RootMeta uint8
@@ -28,12 +28,9 @@ func (m RootMeta) MaxByteLength() uint64 {
 	return 32
 }
 
-func (m RootMeta) Deserialize(r io.Reader, scope uint64) (View, error) {
-	if scope < 32 {
-		return nil, fmt.Errorf("scope of %d not enough for root", scope)
-	}
+func (m RootMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
 	v := RootView{}
-	_, err := r.Read(v[:])
+	_, err := dr.Read(v[:])
 	return &v, err
 }
 
@@ -99,9 +96,8 @@ func (r *RootView) ValueByteLength() (uint64, error) {
 	return 32, nil
 }
 
-func (r *RootView) Serialize(w io.Writer) error {
-	_, err := w.Write(r[:])
-	return err
+func (r *RootView) Serialize(w *codec.EncodingWriter) error {
+	return w.Write(r[:])
 }
 
 func (r *RootView) HashTreeRoot(h HashFn) Root {

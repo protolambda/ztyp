@@ -1,10 +1,9 @@
 package view
 
 import (
-	"encoding/binary"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 const OffsetByteLength = 4
@@ -112,30 +111,7 @@ type ElemIter interface {
 	Next() (elem View, ok bool, err error)
 }
 
-func WriteOffset(w io.Writer, prevOffset uint64, elemLen uint64) (offset uint64, err error) {
-	if prevOffset >= (uint64(1) << 32) {
-		panic("cannot write offset with invalid previous offset")
-	}
-	if elemLen >= (uint64(1) << 32) {
-		panic("cannot write offset with invalid element size")
-	}
-	offset = prevOffset + elemLen
-	if offset >= (uint64(1) << 32) {
-		panic("offset too large, not uint32")
-	}
-	tmp := make([]byte, 4, 4)
-	binary.LittleEndian.PutUint32(tmp, uint32(offset))
-	_, err = w.Write(tmp)
-	return
-}
-
-func ReadOffset(r io.Reader) (uint32, error) {
-	tmp := make([]byte, 4, 4)
-	_, err := r.Read(tmp)
-	return binary.LittleEndian.Uint32(tmp), err
-}
-
-func serializeComplexFixElemSeries(iter ElemIter, w io.Writer) error {
+func serializeComplexFixElemSeries(iter ElemIter, w *codec.EncodingWriter) error {
 	for {
 		el, ok, err := iter.Next()
 		if err != nil {
@@ -151,7 +127,7 @@ func serializeComplexFixElemSeries(iter ElemIter, w io.Writer) error {
 	return nil
 }
 
-func serializeComplexVarElemSeries(length uint64, iterFn func() ElemIter, w io.Writer) error {
+func serializeComplexVarElemSeries(length uint64, iterFn func() ElemIter, w *codec.EncodingWriter) error {
 	// the previous offset, to calculate a new offset from, starting after the fixed data.
 	prevOffset := length * OffsetByteLength
 
@@ -171,7 +147,7 @@ func serializeComplexVarElemSeries(length uint64, iterFn func() ElemIter, w io.W
 		if err != nil {
 			return err
 		}
-		prevOffset, err = WriteOffset(w, prevOffset, prevSize)
+		prevOffset, err = w.WriteOffset(prevOffset, prevSize)
 		if err != nil {
 			return err
 		}

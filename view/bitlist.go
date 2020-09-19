@@ -3,8 +3,8 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
-	"io"
 )
 
 type BitListTypeDef struct {
@@ -79,7 +79,8 @@ func (td *BitListTypeDef) New() *BitListView {
 	return td.Default(nil).(*BitListView)
 }
 
-func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
+func (td *BitListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+	scope := dr.Scope()
 	if scope == 0 {
 		return nil, fmt.Errorf("expected at least a delimit bit, bitlist scope cannot be 0")
 	}
@@ -87,7 +88,7 @@ func (td *BitListTypeDef) Deserialize(r io.Reader, scope uint64) (View, error) {
 		return nil, fmt.Errorf("bitlist has too many bytes, bitlimit %d (byte size %d) but got scope %d", td.BitLimit, td.MaxSize, scope)
 	}
 	contents := make([]byte, scope, scope)
-	if _, err := r.Read(contents); err != nil {
+	if _, err := dr.Read(contents); err != nil {
 		return nil, err
 	}
 	lastByte := contents[scope-1]
@@ -364,7 +365,7 @@ func (tv *BitListView) ValueByteLength() (uint64, error) {
 	return (length + 7 + 1) / 8, nil
 }
 
-func (tv *BitListView) Serialize(w io.Writer) error {
+func (tv *BitListView) Serialize(w *codec.EncodingWriter) error {
 	contentsAnchor, err := tv.BackingNode.Getter(LeftGindex)
 	if err != nil {
 		return err
@@ -382,6 +383,5 @@ func (tv *BitListView) Serialize(w io.Writer) error {
 	}
 	// Add delimit bit
 	contents[byteLength-1] |= 1 << (bitLength & 7)
-	_, err = w.Write(contents)
-	return err
+	return w.Write(contents)
 }
