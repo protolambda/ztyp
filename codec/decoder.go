@@ -10,6 +10,7 @@ import (
 
 type Deserializable interface {
 	Deserialize(dr *DecodingReader) error
+	FixedLength
 }
 
 type FixedLength interface {
@@ -295,24 +296,23 @@ func (dr *DecodingReader) Container(fields ...Deserializable) error {
 	var offsets []uint64
 	var dynFields []Deserializable
 	var prev uint64
-	for i, field := range fields {
-		if fix, ok := field.(FixedLength); ok {
-			size := fix.FixedLength()
-			sub, err := dr.SubScope(size)
+	for i, f := range fields {
+		if fix := f.FixedLength(); fix != 0 {
+			sub, err := dr.SubScope(fix)
 			if err != nil {
 				return err
 			}
-			if err := field.Deserialize(sub); err != nil {
+			if err := f.Deserialize(sub); err != nil {
 				return fmt.Errorf("failed to serialize field %d: %v", i, err)
 			}
-			prev += size
+			prev += fix
 		} else {
 			off, err := dr.ReadOffset()
 			if err != nil {
 				return fmt.Errorf("failed to read offset for field %d: %v", i, err)
 			}
 			offsets = append(offsets, uint64(off))
-			dynFields = append(dynFields, field)
+			dynFields = append(dynFields, f)
 			prev += 4
 		}
 	}

@@ -192,6 +192,10 @@ func (v Uint8View) ValueByteLength() (uint64, error) {
 	return 1, nil
 }
 
+func (v Uint8View) FixedLength() uint64 {
+	return 1
+}
+
 func (v Uint8View) Serialize(w *codec.EncodingWriter) error {
 	return w.WriteByte(byte(v))
 }
@@ -277,6 +281,10 @@ func (v Uint16View) ValueByteLength() (uint64, error) {
 	return 2, nil
 }
 
+func (v Uint16View) FixedLength() uint64 {
+	return 2
+}
+
 func (v Uint16View) Serialize(w *codec.EncodingWriter) error {
 	return w.WriteUint16(uint16(v))
 }
@@ -354,6 +362,10 @@ func (v Uint32View) ValueByteLength() (uint64, error) {
 	return 4, nil
 }
 
+func (v Uint32View) FixedLength() uint64 {
+	return 4
+}
+
 func (v Uint32View) Serialize(w *codec.EncodingWriter) error {
 	return w.WriteUint32(uint32(v))
 }
@@ -429,6 +441,10 @@ func (v Uint64View) Copy() (View, error) {
 
 func (v Uint64View) ValueByteLength() (uint64, error) {
 	return 8, nil
+}
+
+func (v Uint64View) FixedLength() uint64 {
+	return 8
 }
 
 func (v Uint64View) Serialize(w *codec.EncodingWriter) error {
@@ -604,6 +620,10 @@ func (v BoolView) Copy() (View, error) {
 
 func (v BoolView) ValueByteLength() (uint64, error) {
 	return 1, nil
+}
+
+func (v BoolView) FixedLength() uint64 {
+	return 1
 }
 
 func (v BoolView) Serialize(w *codec.EncodingWriter) error {

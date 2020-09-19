@@ -2,11 +2,14 @@ package codec
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
 type Serializable interface {
 	Serialize(w *EncodingWriter) error
+	ValueByteLength() uint64
+	FixedLength
 }
 
 type Encodable interface {
@@ -78,4 +81,91 @@ func (ew *EncodingWriter) WriteUint32(v uint32) error {
 func (ew *EncodingWriter) WriteUint64(v uint64) error {
 	binary.LittleEndian.PutUint64(ew.Scratch[0:8], v)
 	return ew.Write(ew.Scratch[0:8])
+}
+
+// List serialization.
+// If fixedElemSize == 0, then items are considered dynamic length, and will be encoded with offsets.
+func (ew *EncodingWriter) List(item func(i uint64) Serializable, fixedElemSize uint64, length uint64) error {
+	if fixedElemSize == 0 {
+		prev := 4 * length
+		// write offsets
+		for i := uint64(0); i < length; i++ {
+			size := item(i).ValueByteLength()
+			offset, err := ew.WriteOffset(prev, size)
+			if err != nil {
+				return fmt.Errorf("failed to serialize list item %d: %v", i, err)
+			}
+			prev = offset
+		}
+	}
+	// write elements
+	for i := uint64(0); i < length; i++ {
+		if err := item(i).Serialize(ew); err != nil {
+			return fmt.Errorf("failed to serialize list item %d: %v", i, err)
+		}
+	}
+	return nil
+}
+
+// Vector serialization, works the same as encoding a List.
+func (ew *EncodingWriter) Vector(item func(i uint64) Serializable, fixedElemSize uint64, length uint64) error {
+	return ew.List(item, fixedElemSize, length)
+}
+
+func (ew *EncodingWriter) BitList(bits []byte) error {
+	if len(bits) == 0 || bits[len(bits)-1] == 0 {
+		return fmt.Errorf("missing delimiter bit, invalid bitlist")
+	}
+	return ew.Write(bits)
+}
+
+func (ew *EncodingWriter) BitVector(bits []byte) error {
+	if len(bits) == 0 {
+		return fmt.Errorf("bitvector must not be empty")
+	}
+	return ew.Write(bits)
+}
+
+// Container serialization. Fields with a non-zero .FixedLength() are considered fixed-length.
+func (ew *EncodingWriter) Container(fields ...Serializable) error {
+	fixedLen := uint64(0)
+	isFixedLen := true
+	for _, f := range fields {
+		if fix := f.FixedLength(); fix != 0 {
+			fixedLen += fix
+		} else {
+			// length of an offset
+			fixedLen += 4
+			isFixedLen = false
+		}
+	}
+	// the previous offset, to calculate a new offset from, starting after the fixed data.
+	prevOffset := fixedLen
+	// span of the previous var-size element
+	prevSize := uint64(0)
+	for i, f := range fields {
+		if f.FixedLength() != 0 {
+			if err := f.Serialize(ew); err != nil {
+				return fmt.Errorf("failed to serialize field %d: %v", i, err)
+			}
+		} else {
+			if offset, err := ew.WriteOffset(prevOffset, prevSize); err != nil {
+				return err
+			} else {
+				prevOffset = offset
+			}
+			prevSize = f.ValueByteLength()
+		}
+	}
+	// Only iterate over and write dynamic parts if we need to.
+	if !isFixedLen {
+		for i, f := range fields {
+			if f.FixedLength() != 0 {
+				if err := f.Serialize(ew); err != nil {
+					return fmt.Errorf("failed to serialize field %d: %v", i, err)
+				}
+			}
+		}
+	}
+	return nil
 }

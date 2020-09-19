@@ -84,6 +84,10 @@ func (r *Root) Setter(target Gindex, expand bool) (Link, error) {
 	}
 }
 
+func (Root) FixedLength() uint64 {
+	return 32
+}
+
 func (r *Root) SummarizeInto(target Gindex, h HashFn) (SummaryLink, error) {
 	if target.IsRoot() {
 		return func() (Node, error) {
