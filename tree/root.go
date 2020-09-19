@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/protolambda/ztyp/codec"
 )
 
 type Root [32]byte
@@ -14,6 +15,14 @@ func (r Root) MarshalText() ([]byte, error) {
 
 func (r Root) String() string {
 	return "0x" + hex.EncodeToString(r[:])
+}
+
+func (r *Root) Deserialize(dr *codec.DecodingReader) error {
+	if r == nil {
+		return errors.New("nil root")
+	}
+	_, err := dr.Read(r[:])
+	return err
 }
 
 func (r Root) HashTreeRoot(_ HashFn) Root {

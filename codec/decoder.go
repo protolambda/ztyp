@@ -290,7 +290,7 @@ func (dr *DecodingReader) BitList(dst *[]byte, bitLimit uint64) error {
 	return bitfields.BitlistCheck(*dst, bitLimit)
 }
 
-func (dr *DecodingReader) Container(fields []Deserializable) error {
+func (dr *DecodingReader) Container(fields ...Deserializable) error {
 	scope := dr.Scope()
 	var offsets []uint64
 	var dynFields []Deserializable
