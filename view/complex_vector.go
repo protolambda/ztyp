@@ -142,7 +142,7 @@ func (td *ComplexVectorTypeDef) Deserialize(dr *codec.DecodingReader) (View, err
 			}
 			elements[i] = el
 		}
-		sub, err := dr.SubScope(scope-uint64(offsets[lastIndex]))
+		sub, err := dr.SubScope(scope - uint64(offsets[lastIndex]))
 		if err != nil {
 			return nil, err
 		}

@@ -3,6 +3,7 @@ package codec
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/protolambda/ztyp/bitfields"
 	"io"
 	"io/ioutil"
 )
@@ -11,19 +12,23 @@ type Deserializable interface {
 	Deserialize(dr *DecodingReader) error
 }
 
+type FixedLength interface {
+	FixedLength() uint64
+}
+
 type Decodable interface {
 	Decode(x []byte) error
 }
 
 type DecodingReader struct {
-	input    io.Reader
-	i        uint64
-	max      uint64
-	scratch  [32]byte
+	input   io.Reader
+	i       uint64
+	max     uint64
+	scratch [32]byte
 }
 
 func NewDecodingReader(input io.Reader, scope uint64) *DecodingReader {
-	return &DecodingReader{input: input, i: 0, max: scope}
+	return &DecodingReader{input: io.LimitReader(input, int64(scope)), i: 0, max: scope}
 }
 
 // SubScope returns a scope of the SSZ reader. Re-uses same scratchpad.
@@ -32,9 +37,9 @@ func (dr *DecodingReader) SubScope(count uint64) (*DecodingReader, error) {
 	if span := dr.Scope(); span < count {
 		return nil, fmt.Errorf("cannot create scoped decoding reader, scope of %d bytes is bigger than parent scope has available space %d", count, span)
 	}
+	// TODO: don't nest readers, instead just limit input reads ourselves
 	return &DecodingReader{input: io.LimitReader(dr.input, int64(count)), i: 0, max: count}, nil
 }
-
 
 func (dr *DecodingReader) UpdateIndexFromScoped(other *DecodingReader) {
 	dr.i += other.i
@@ -52,7 +57,21 @@ func (dr *DecodingReader) Max() uint64 {
 	return dr.max
 }
 
+func (dr *DecodingReader) hasScope(x uint64) error {
+	if ^uint64(0)-dr.i < x {
+		return fmt.Errorf("overflow: x: %d, i: %d, max: %d", x, dr.i, dr.max)
+	}
+	v := dr.i + x
+	if v > dr.max {
+		return fmt.Errorf("cannot read %d bytes, %d beyond scope", x, v-dr.max)
+	}
+	return nil
+}
+
 func (dr *DecodingReader) checkedIndexUpdate(x uint64) (n int, err error) {
+	if ^uint64(0)-dr.i < x {
+		return 0, fmt.Errorf("overflow: x: %d, i: %d, max: %d", x, dr.i, dr.max)
+	}
 	v := dr.i + x
 	if v > dr.max {
 		return int(dr.i), fmt.Errorf("cannot read %d bytes, %d beyond scope", x, v-dr.max)
@@ -121,4 +140,202 @@ func (dr *DecodingReader) Scope() uint64 {
 
 func (dr *DecodingReader) ReadOffset() (uint32, error) {
 	return dr.ReadUint32()
+}
+
+// Deserialize vector. If fixedElemSize == 0, the item is regarded as dynamic length
+func (dr *DecodingReader) Vector(item func(i uint64) Deserializable, fixedElemSize uint64, length uint64) error {
+	if fixedElemSize != 0 {
+		for i := uint64(0); i < length; i++ {
+			sub, err := dr.SubScope(fixedElemSize)
+			if err != nil {
+				return err
+			}
+			if err := item(i).Deserialize(sub); err != nil {
+				return fmt.Errorf("failed to deserialize item %d: %v", i, err)
+			}
+		}
+		return nil
+	} else {
+		scope := dr.Scope()
+		// TODO could optimize this
+		offsets := make([]uint64, length, length)
+		for i := uint64(0); i < length; i++ {
+			off, err := dr.ReadOffset()
+			if err != nil {
+				return err
+			}
+			offsets[i] = uint64(off)
+		}
+		var prev uint64
+		for i, off := range offsets {
+			if prev > off {
+				return fmt.Errorf("offset %d is too low, previous was %d", off, prev)
+			}
+			item := item(uint64(0))
+			next := scope
+			if len(offsets) > i+1 {
+				next = offsets[i+1]
+			}
+			sub, err := dr.SubScope(next - off)
+			if err != nil {
+				return err
+			}
+			if err := item.Deserialize(sub); err != nil {
+				return fmt.Errorf("failed to serialize item %d: %v", i, err)
+			}
+			prev = next
+		}
+		return nil
+	}
+}
+
+func (dr *DecodingReader) List(add func() Deserializable, fixedElemSize uint64, limit uint64) error {
+	if fixedElemSize != 0 {
+		scope := dr.Scope()
+		if scope%fixedElemSize != 0 {
+			return fmt.Errorf("scope %d is not a multiple of expected element size: %d", scope, fixedElemSize)
+		}
+		length := scope / fixedElemSize
+		if length > limit {
+			return fmt.Errorf("too many items in list: %d > %d", length, limit)
+		}
+		for i := uint64(0); i < length; i++ {
+			item := add()
+			sub, err := dr.SubScope(fixedElemSize)
+			if err != nil {
+				return err
+			}
+			if err := item.Deserialize(sub); err != nil {
+				return err
+			}
+		}
+		return nil
+	} else {
+		scope := dr.Scope()
+		firstOffset, err := dr.ReadOffset()
+		if err != nil {
+			return err
+		}
+		if firstOffset%4 != 0 {
+			return fmt.Errorf("first offset of list is invalid, not a multiple of 4: %d", firstOffset)
+		}
+		length := uint64(firstOffset / 4)
+		if length > limit {
+			return fmt.Errorf("too many items in list: %d > %d", length, limit)
+		}
+		// TODO could optimize this
+		offsets := make([]uint64, 0, length)
+		offsets = append(offsets, uint64(firstOffset))
+		for i := uint64(1); i < length; i++ {
+			off, err := dr.ReadOffset()
+			if err != nil {
+				return err
+			}
+			offsets = append(offsets, uint64(off))
+		}
+		var prev uint64
+		for i, off := range offsets {
+			if prev > off {
+				return fmt.Errorf("offset %d is too low, previous was %d", off, prev)
+			}
+			item := add()
+			next := scope
+			if len(offsets) > i+1 {
+				next = offsets[i+1]
+			}
+			sub, err := dr.SubScope(next - off)
+			if err != nil {
+				return err
+			}
+			if err := item.Deserialize(sub); err != nil {
+				return fmt.Errorf("failed to serialize item %d: %v", i, err)
+			}
+			prev = next
+		}
+		return nil
+	}
+}
+
+func (dr *DecodingReader) BitVector(dst *[]byte, bitLength uint64) error {
+	if dst == nil {
+		return fmt.Errorf("bitvector destination is nil")
+	}
+	// grow the destination if necessary
+	byteLen := (bitLength + 7) >> 3
+	if uint64(cap(*dst)) < byteLen {
+		*dst = make([]byte, byteLen, byteLen)
+	} else {
+		*dst = (*dst)[:byteLen]
+	}
+	if _, err := dr.Read(*dst); err != nil {
+		return err
+	}
+	return bitfields.BitvectorCheck(*dst, bitLength)
+}
+
+func (dr *DecodingReader) BitList(dst *[]byte, bitLimit uint64) error {
+	byteLen := dr.Scope()
+	if byteLimit := (bitLimit + 7) >> 3; byteLen > byteLimit {
+		return fmt.Errorf("bitlist is too big: %d bytes, limit is %d (bitlimit %d)", byteLen, byteLimit, bitLimit)
+	}
+	// grow the destination if necessary
+	if uint64(cap(*dst)) < byteLen {
+		*dst = make([]byte, byteLen, byteLen)
+	} else {
+		*dst = (*dst)[:byteLen]
+	}
+	if _, err := dr.Read(*dst); err != nil {
+		return err
+	}
+	return bitfields.BitlistCheck(*dst, bitLimit)
+}
+
+func (dr *DecodingReader) Container(fields []Deserializable) error {
+	scope := dr.Scope()
+	var offsets []uint64
+	var dynFields []Deserializable
+	var prev uint64
+	for i, field := range fields {
+		if fix, ok := field.(FixedLength); ok {
+			size := fix.FixedLength()
+			sub, err := dr.SubScope(size)
+			if err != nil {
+				return err
+			}
+			if err := field.Deserialize(sub); err != nil {
+				return fmt.Errorf("failed to serialize field %d: %v", i, err)
+			}
+			prev += size
+		} else {
+			off, err := dr.ReadOffset()
+			if err != nil {
+				return fmt.Errorf("failed to read offset for field %d: %v", i, err)
+			}
+			offsets = append(offsets, uint64(off))
+			dynFields = append(dynFields, field)
+			prev += 4
+		}
+	}
+	if len(dynFields) == 0 || len(offsets) == 0 {
+		return nil
+	}
+	for i, off := range offsets {
+		if prev > off {
+			return fmt.Errorf("offset %d is too low, previous was %d", off, prev)
+		}
+		f := dynFields[i]
+		next := scope
+		if len(offsets) > i+1 {
+			next = offsets[i+1]
+		}
+		sub, err := dr.SubScope(next - off)
+		if err != nil {
+			return err
+		}
+		if err := f.Deserialize(sub); err != nil {
+			return fmt.Errorf("failed to serialize field %d: %v", i, err)
+		}
+		prev = next
+	}
+	return nil
 }

@@ -154,7 +154,7 @@ func (td *ComplexListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error
 			}
 			elements[i] = el
 		}
-		sub, err := dr.SubScope(scope-uint64(offsets[lastIndex]))
+		sub, err := dr.SubScope(scope - uint64(offsets[lastIndex]))
 		if err != nil {
 			return nil, err
 		}

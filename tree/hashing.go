@@ -19,7 +19,7 @@ type HashFn func(a Root, b Root) Root
 
 // HashTreeRoot is a small utility function to implement HTR for custom compound types easily.
 // E.g. for a struct `x` with 3 fields, call hFn.HashTreeRoot(x.A, x.B, x.C)
-func (h HashFn) HashTreeRoot(fields... HTR) Root {
+func (h HashFn) HashTreeRoot(fields ...HTR) Root {
 	// TODO; benchmark, may be worth hard-coding a few more common short-paths
 	n := uint64(len(fields))
 	switch n {
@@ -40,7 +40,7 @@ func (h HashFn) ComplexVectorHTR(series SeriesHTR, length uint64) Root {
 	// length is alos limit for vectors
 	return Merkleize(h, length, length, func(i uint64) Root {
 		htr := series(i)
-		if htr == nil {  // missing element? Fine, just like an empty node then
+		if htr == nil { // missing element? Fine, just like an empty node then
 			return Root{}
 		}
 		return htr.HashTreeRoot(h)
@@ -50,7 +50,7 @@ func (h HashFn) ComplexVectorHTR(series SeriesHTR, length uint64) Root {
 func (h HashFn) ComplexListHTR(series SeriesHTR, length uint64, limit uint64) Root {
 	return h.Mixin(Merkleize(h, length, limit, func(i uint64) Root {
 		htr := series(i)
-		if htr == nil {  // missing element? Fine, just like an empty node then
+		if htr == nil { // missing element? Fine, just like an empty node then
 			return Root{}
 		}
 		return htr.HashTreeRoot(h)
@@ -74,7 +74,7 @@ func (h HashFn) Uint64VectorHTR(v func(i uint64) uint64, length uint64) Root {
 	// 4 items per chunk
 	chunks := (length + 3) >> 2
 	return h.ChunksHTR(func(i uint64) (out Root) {
-		for x, j := 0, i << 2; j < length; j, x = j+1, x+8 {
+		for x, j := 0, i<<2; j < length; j, x = j+1, x+8 {
 			binary.LittleEndian.PutUint64(out[x:], v(j))
 		}
 		return
@@ -85,11 +85,11 @@ func (h HashFn) Uint64ListHTR(v func(i uint64) uint64, length uint64, limit uint
 	// 4 items per chunk
 	chunks := (length + 3) >> 2
 	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
-		for x, j := 0, i << 2; j < length; j, x = j+1, x+8 {
+		for x, j := 0, i<<2; j < length; j, x = j+1, x+8 {
 			binary.LittleEndian.PutUint64(out[x:], v(j))
 		}
 		return
-	}, chunks, (limit + 3) >> 2), length)
+	}, chunks, (limit+3)>>2), length)
 }
 
 func (h HashFn) BitVectorHTR(bits []byte) Root {
@@ -98,7 +98,7 @@ func (h HashFn) BitVectorHTR(bits []byte) Root {
 	chunkLen := (bitLen + 0xff) >> 8
 	return h.ChunksHTR(func(i uint64) (out Root) {
 		if i < chunkLen {
-			copy(out[:], bits[i << 8:])
+			copy(out[:], bits[i<<8:])
 			// no delimiter bits in bit vectors
 		}
 		return
@@ -110,14 +110,14 @@ func (h HashFn) BitListHTR(bits []byte, bitlimit uint64) Root {
 	chunkLen := (bitLen + 0xff) >> 8
 	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
 		if i < chunkLen {
-			copy(out[:], bits[i << 8:])
+			copy(out[:], bits[i<<8:])
 			// mask out delimit bit if necessary
-			if ((i+1) << 8) > bitLen {
-				out[(bitLen & 0xff) >> 3] &^= 1 << (bitLen & 0x7)
+			if ((i + 1) << 8) > bitLen {
+				out[(bitLen&0xff)>>3] &^= 1 << (bitLen & 0x7)
 			}
 		}
 		return
-	}, chunkLen, (bitlimit + 0xff) >> 8), bitLen)
+	}, chunkLen, (bitlimit+0xff)>>8), bitLen)
 }
 
 func sha256Combi(a Root, b Root) Root {
