@@ -25,6 +25,18 @@ func (r *Root) Deserialize(dr *codec.DecodingReader) error {
 	return err
 }
 
+func (r Root) Serialize(w *codec.EncodingWriter) error {
+	return w.Write(r[:])
+}
+
+func (Root) ByteLength() uint64 {
+	return 32
+}
+
+func (Root) ValueByteLength() (uint64, error) {
+	return 32, nil
+}
+
 func (r Root) HashTreeRoot(_ HashFn) Root {
 	return r
 }

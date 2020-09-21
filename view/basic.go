@@ -618,6 +618,10 @@ func (v BoolView) Copy() (View, error) {
 	return v, nil
 }
 
+func (v BoolView) ByteLength() uint64 {
+	return 1
+}
+
 func (v BoolView) ValueByteLength() (uint64, error) {
 	return 1, nil
 }

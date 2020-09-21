@@ -191,8 +191,12 @@ func (dr *DecodingReader) Vector(item func(i uint64) Deserializable, fixedElemSi
 }
 
 func (dr *DecodingReader) List(add func() Deserializable, fixedElemSize uint64, limit uint64) error {
+	scope := dr.Scope()
+	// no items to decode
+	if scope == 0 {
+		return nil
+	}
 	if fixedElemSize != 0 {
-		scope := dr.Scope()
 		if scope%fixedElemSize != 0 {
 			return fmt.Errorf("scope %d is not a multiple of expected element size: %d", scope, fixedElemSize)
 		}
@@ -212,7 +216,6 @@ func (dr *DecodingReader) List(add func() Deserializable, fixedElemSize uint64, 
 		}
 		return nil
 	} else {
-		scope := dr.Scope()
 		firstOffset, err := dr.ReadOffset()
 		if err != nil {
 			return err
@@ -303,7 +306,7 @@ func (dr *DecodingReader) Container(fields ...Deserializable) error {
 				return err
 			}
 			if err := f.Deserialize(sub); err != nil {
-				return fmt.Errorf("failed to serialize field %d: %v", i, err)
+				return fmt.Errorf("failed to deserialize fixed-length field %d: %v", i, err)
 			}
 			prev += fix
 		} else {
@@ -333,7 +336,7 @@ func (dr *DecodingReader) Container(fields ...Deserializable) error {
 			return err
 		}
 		if err := f.Deserialize(sub); err != nil {
-			return fmt.Errorf("failed to serialize field %d: %v", i, err)
+			return fmt.Errorf("failed to deserialize dynamic-length field %d: %v", i, err)
 		}
 		prev = next
 	}

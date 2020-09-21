@@ -8,8 +8,32 @@ import (
 
 type Serializable interface {
 	Serialize(w *EncodingWriter) error
-	ValueByteLength() uint64
+	ByteLength
 	FixedLength
+}
+
+type ByteLength interface {
+	ByteLength() uint64
+}
+
+const OFFSET_SIZE = 4
+
+func Sum(values ...ByteLength) (out uint64) {
+	for _, v := range values {
+		out += v.ByteLength()
+	}
+	return
+}
+
+func ContainerLength(values ...Serializable) (out uint64) {
+	for _, v := range values {
+		if size := v.FixedLength(); size == 0 {
+			out += v.ByteLength() + OFFSET_SIZE
+		} else {
+			out += size
+		}
+	}
+	return
 }
 
 type Encodable interface {
@@ -90,7 +114,7 @@ func (ew *EncodingWriter) List(item func(i uint64) Serializable, fixedElemSize u
 		prev := 4 * length
 		// write offsets
 		for i := uint64(0); i < length; i++ {
-			size := item(i).ValueByteLength()
+			size := item(i).ByteLength()
 			offset, err := ew.WriteOffset(prev, size)
 			if err != nil {
 				return fmt.Errorf("failed to serialize list item %d: %v", i, err)
@@ -146,7 +170,7 @@ func (ew *EncodingWriter) Container(fields ...Serializable) error {
 	for i, f := range fields {
 		if f.FixedLength() != 0 {
 			if err := f.Serialize(ew); err != nil {
-				return fmt.Errorf("failed to serialize field %d: %v", i, err)
+				return fmt.Errorf("failed to serialize fixed-length field %d: %v", i, err)
 			}
 		} else {
 			if offset, err := ew.WriteOffset(prevOffset, prevSize); err != nil {
@@ -154,15 +178,15 @@ func (ew *EncodingWriter) Container(fields ...Serializable) error {
 			} else {
 				prevOffset = offset
 			}
-			prevSize = f.ValueByteLength()
+			prevSize = f.ByteLength()
 		}
 	}
 	// Only iterate over and write dynamic parts if we need to.
 	if !isFixedLen {
 		for i, f := range fields {
-			if f.FixedLength() != 0 {
+			if f.FixedLength() == 0 {
 				if err := f.Serialize(ew); err != nil {
-					return fmt.Errorf("failed to serialize field %d: %v", i, err)
+					return fmt.Errorf("failed to serialize dynamic-length field %d: %v", i, err)
 				}
 			}
 		}
