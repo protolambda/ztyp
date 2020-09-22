@@ -74,7 +74,7 @@ func (h HashFn) Uint64VectorHTR(v func(i uint64) uint64, length uint64) Root {
 	// 4 items per chunk
 	chunks := (length + 3) >> 2
 	return h.ChunksHTR(func(i uint64) (out Root) {
-		for x, j := 0, i<<2; x < 32; j, x = j+1, x+8 {
+		for x, j := 0, i<<2; x < 32 && j < length; j, x = j+1, x+8 {
 			binary.LittleEndian.PutUint64(out[x:], v(j))
 		}
 		return
@@ -85,7 +85,7 @@ func (h HashFn) Uint64ListHTR(v func(i uint64) uint64, length uint64, limit uint
 	// 4 items per chunk
 	chunks := (length + 3) >> 2
 	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
-		for x, j := 0, i<<2; x < 32; j, x = j+1, x+8 {
+		for x, j := 0, i<<2; x < 32 && j < length; j, x = j+1, x+8 {
 			binary.LittleEndian.PutUint64(out[x:], v(j))
 		}
 		return
