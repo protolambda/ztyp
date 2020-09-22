@@ -152,6 +152,15 @@ func (ew *EncodingWriter) BitVector(bits []byte) error {
 	return ew.Write(bits)
 }
 
+func (ew *EncodingWriter) FixedLenContainer(fields ...Serializable) error {
+	for i, f := range fields {
+		if err := f.Serialize(ew); err != nil {
+			return fmt.Errorf("failed to serialize fixed-length field %d: %v", i, err)
+		}
+	}
+	return nil
+}
+
 // Container serialization. Fields with a non-zero .FixedLength() are considered fixed-length.
 func (ew *EncodingWriter) Container(fields ...Serializable) error {
 	fixedLen := uint64(0)

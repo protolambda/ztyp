@@ -116,3 +116,31 @@ func (r *Root) MerkleRoot(h HashFn) Root {
 	}
 	return *r
 }
+
+func ReadRoots(dr *codec.DecodingReader, roots *[]Root, length uint64) error {
+	if uint64(len(*roots)) != length {
+		// re-use space if available (for recycling old state objects)
+		if uint64(cap(*roots)) >= length {
+			*roots = (*roots)[:length]
+		} else {
+			*roots = make([]Root, length, length)
+		}
+	}
+	dst := *roots
+	for i := uint64(0); i < length; i++ {
+		if _, err := dr.Read(dst[i][:]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// WriteRoots serialization, efficient version of List/Vector serialization
+func WriteRoots(ew *codec.EncodingWriter, roots []Root) error {
+	for i := range roots {
+		if err := ew.Write(roots[i][:]); err != nil {
+			return err
+		}
+	}
+	return nil
+}

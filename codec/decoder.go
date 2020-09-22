@@ -298,6 +298,17 @@ func (dr *DecodingReader) BitList(dst *[]byte, bitLimit uint64) error {
 	return bitfields.BitlistCheck(*dst, bitLimit)
 }
 
+// FixedLenContainer just reads the concatednated fields, without opening smaller scopes.
+// Much faster for simple structs, but use with caution.
+func (dr *DecodingReader) FixedLenContainer(fields ...Deserializable) error {
+	for i, f := range fields {
+		if err := f.Deserialize(dr); err != nil {
+			return fmt.Errorf("failed to deserialize fixed-length field %d: %v", i, err)
+		}
+	}
+	return nil
+}
+
 func (dr *DecodingReader) Container(fields ...Deserializable) error {
 	scope := dr.Scope()
 	var offsets []uint64
