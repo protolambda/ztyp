@@ -247,6 +247,10 @@ func (dr *DecodingReader) List(add func() Deserializable, fixedElemSize uint64, 
 			if len(offsets) > i+1 {
 				next = offsets[i+1]
 			}
+			if next == off {
+				prev = off
+				continue
+			}
 			sub, err := dr.SubScope(next - off)
 			if err != nil {
 				return err
@@ -254,7 +258,7 @@ func (dr *DecodingReader) List(add func() Deserializable, fixedElemSize uint64, 
 			if err := item.Deserialize(sub); err != nil {
 				return fmt.Errorf("failed to serialize item %d: %v", i, err)
 			}
-			prev = next
+			prev = off
 		}
 		return nil
 	}
@@ -322,14 +326,17 @@ func (dr *DecodingReader) Container(fields ...Deserializable) error {
 	if len(dynFields) == 0 || len(offsets) == 0 {
 		return nil
 	}
+	if prev != offsets[0] {
+		return fmt.Errorf("offset 0 is incorrect, expected %d, got %d", prev, offsets[0])
+	}
 	for i, off := range offsets {
-		if prev > off {
-			return fmt.Errorf("offset %d is too low, previous was %d", off, prev)
-		}
 		f := dynFields[i]
 		next := scope
 		if len(offsets) > i+1 {
 			next = offsets[i+1]
+		}
+		if next < off {
+			return fmt.Errorf("scope cannot be negative, got offset %d after %d, at index %d", next, off, i)
 		}
 		sub, err := dr.SubScope(next - off)
 		if err != nil {

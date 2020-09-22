@@ -111,15 +111,17 @@ func (ew *EncodingWriter) WriteUint64(v uint64) error {
 // If fixedElemSize == 0, then items are considered dynamic length, and will be encoded with offsets.
 func (ew *EncodingWriter) List(item func(i uint64) Serializable, fixedElemSize uint64, length uint64) error {
 	if fixedElemSize == 0 {
-		prev := 4 * length
+		prevOffset := 4 * length
+		prevSize := uint64(0)
 		// write offsets
 		for i := uint64(0); i < length; i++ {
 			size := item(i).ByteLength()
-			offset, err := ew.WriteOffset(prev, size)
+			offset, err := ew.WriteOffset(prevOffset, prevSize)
 			if err != nil {
 				return fmt.Errorf("failed to serialize list item %d: %v", i, err)
 			}
-			prev = offset
+			prevOffset = offset
+			prevSize = size
 		}
 	}
 	// write elements
