@@ -135,6 +135,18 @@ func ReadRoots(dr *codec.DecodingReader, roots *[]Root, length uint64) error {
 	return nil
 }
 
+func ReadRootsLimited(dr *codec.DecodingReader, roots *[]Root, limit uint64) error {
+	scope := dr.Scope()
+	if scope%32 != 0 {
+		return fmt.Errorf("bad deserialization scope, cannot decode roots list")
+	}
+	length := scope / 32
+	if length > limit {
+		return fmt.Errorf("too many roots: %d > %d", length, limit)
+	}
+	return ReadRoots(dr, roots, length)
+}
+
 // WriteRoots serialization, efficient version of List/Vector serialization
 func WriteRoots(ew *codec.EncodingWriter, roots []Root) error {
 	for i := range roots {
