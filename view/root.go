@@ -105,8 +105,8 @@ func (r *RootView) HashTreeRoot(h HashFn) Root {
 	return Root(*r)
 }
 
-func (r *RootView) MarshalText(b []byte) ([]byte, error) {
-	return conv.BytesMarshalText(b)
+func (r *RootView) MarshalText() ([]byte, error) {
+	return conv.BytesMarshalText(r[:])
 }
 
 func (r *RootView) UnmarshalText(text []byte) error {

@@ -91,7 +91,7 @@ func TestUint64View_UnmarshalJSON(t *testing.T) {
 	}
 	bad := []string{
 		``, `"`, `""`, `''`, `""0""`, `"0""`, `""0"`,
-		"0x", "0b", "-0", "-123", "0x1FFFFFFFFFFFFFFFF", "FFFFFFFFFFFFFFFF", "-a", "-0xab",
+		"00x0", "00x0", "0x", "0b", "-0", "-123", "0x1FFFFFFFFFFFFFFFF", "FFFFFFFFFFFFFFFF", "-a", "-0xab",
 	}
 	for _, b := range bad {
 		t.Run(b, func(t *testing.T) {

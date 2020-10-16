@@ -109,8 +109,8 @@ func (v SmallByteVecView) Type() TypeDef {
 	return SmallByteVecMeta(len(v))
 }
 
-func (v SmallByteVecView) MarshalText(b []byte) ([]byte, error) {
-	return conv.BytesMarshalText(b)
+func (v SmallByteVecView) MarshalText() ([]byte, error) {
+	return conv.BytesMarshalText(v)
 }
 
 func (v SmallByteVecView) UnmarshalText(text []byte) error {
