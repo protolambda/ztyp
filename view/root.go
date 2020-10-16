@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"github.com/protolambda/ztyp/codec"
+	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
 )
 
@@ -102,4 +103,12 @@ func (r *RootView) Serialize(w *codec.EncodingWriter) error {
 
 func (r *RootView) HashTreeRoot(h HashFn) Root {
 	return Root(*r)
+}
+
+func (r *RootView) MarshalText(b []byte) ([]byte, error) {
+	return conv.BytesMarshalText(b)
+}
+
+func (r *RootView) UnmarshalText(text []byte) error {
+	return conv.FixedBytesUnmarshalText(r[:], text)
 }
