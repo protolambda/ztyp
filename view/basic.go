@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/protolambda/ztyp/codec"
+	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
 )
 
@@ -498,6 +499,14 @@ func (v Uint64View) HashTreeRoot(h HashFn) Root {
 
 func (v Uint64View) Type() TypeDef {
 	return Uint64Type
+}
+
+func (v Uint64View) MarshalJSON() ([]byte, error) {
+	return conv.Uint64Marshal(uint64(v))
+}
+
+func (v *Uint64View) UnmarshalJSON(b []byte) error {
+	return conv.Uint64Unmarshal((*uint64)(v), b)
 }
 
 type BoolMeta uint8
