@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/protolambda/ztyp/codec"
+	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
 )
 
@@ -106,6 +107,14 @@ func (v SmallByteVecView) HashTreeRoot(h HashFn) Root {
 
 func (v SmallByteVecView) Type() TypeDef {
 	return SmallByteVecMeta(len(v))
+}
+
+func (v SmallByteVecView) MarshalText() ([]byte, error) {
+	return conv.BytesMarshalText(v)
+}
+
+func (v SmallByteVecView) UnmarshalText(text []byte) error {
+	return conv.FixedBytesUnmarshalText(v, text)
 }
 
 const Bytes4Type SmallByteVecMeta = 4
