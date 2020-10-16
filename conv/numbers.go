@@ -17,8 +17,8 @@ func Uint64Unmarshal(v *uint64, b []byte) error {
 	if len(b) == 0 {
 		return EmptyInputErr
 	}
-	if b[0] == '"' {
-		if len(b) == 1 || b[len(b)-1] != '"' {
+	if b[0] == '"' || b[0] == '\'' {
+		if len(b) == 1 || b[len(b)-1] != b[0] {
 			return MissingQuoteErr
 		}
 		b = b[1 : len(b)-1]
