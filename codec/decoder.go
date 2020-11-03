@@ -298,6 +298,36 @@ func (dr *DecodingReader) BitList(dst *[]byte, bitLimit uint64) error {
 	return bitfields.BitlistCheck(*dst, bitLimit)
 }
 
+func (dr *DecodingReader) ByteVector(dst *[]byte, byteLength uint64) error {
+	if dst == nil {
+		return fmt.Errorf("byte vector destination is nil")
+	}
+	// grow the destination if necessary
+	byteLen := (byteLength + 7) >> 3
+	if uint64(cap(*dst)) < byteLen {
+		*dst = make([]byte, byteLen, byteLen)
+	} else {
+		*dst = (*dst)[:byteLen]
+	}
+	_, err := dr.Read(*dst)
+	return err
+}
+
+func (dr *DecodingReader) ByteList(dst *[]byte, byteLimit uint64) error {
+	byteLen := dr.Scope()
+	if byteLen > byteLimit {
+		return fmt.Errorf("byte list is too big: %d bytes, limit is %d", byteLen, byteLimit)
+	}
+	// grow the destination if necessary
+	if uint64(cap(*dst)) < byteLen {
+		*dst = make([]byte, byteLen, byteLen)
+	} else if uint64(len(*dst)) < byteLen {
+		*dst = (*dst)[:byteLen]
+	}
+	_, err := dr.Read(*dst)
+	return err
+}
+
 // FixedLenContainer just reads the concatednated fields, without opening smaller scopes.
 // Much faster for simple structs, but use with caution.
 func (dr *DecodingReader) FixedLenContainer(fields ...Deserializable) error {

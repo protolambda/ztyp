@@ -92,6 +92,22 @@ func (h HashFn) Uint64ListHTR(v func(i uint64) uint64, length uint64, limit uint
 	}, chunks, (limit+3)>>2), length)
 }
 
+func (h HashFn) ByteVectorHTR(values []byte) Root {
+	chunks := (uint64(len(values)) + 31) / 32
+	return h.ChunksHTR(func(i uint64) (out Root) {
+		copy(out[:], values[i*32:])
+		return
+	}, chunks, chunks)
+}
+
+func (h HashFn) ByteListHTR(values []byte, limit uint64) Root {
+	chunks := (uint64(len(values)) + 31) / 32
+	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
+		copy(out[:], values[i*32:])
+		return
+	}, chunks, (limit+3)>>2), uint64(len(values)))
+}
+
 func (h HashFn) BitVectorHTR(bits []byte) Root {
 	bitLen := bitfields.BitlistLen(bits)
 	// it's a vector, chunkLen is also chunkLimit
