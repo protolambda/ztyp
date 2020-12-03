@@ -7,6 +7,7 @@ import (
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
+	"strconv"
 )
 
 // A uint type, identified by its size in bytes.
@@ -236,6 +237,10 @@ func (v Uint8View) Type() TypeDef {
 	return Uint8Type
 }
 
+func (v Uint8View) String() string {
+	return strconv.FormatUint(uint64(v), 10)
+}
+
 // Alias to Uint8Type
 const ByteType = Uint8Type
 
@@ -331,6 +336,10 @@ func (v Uint16View) Type() TypeDef {
 	return Uint16Type
 }
 
+func (v Uint16View) String() string {
+	return strconv.FormatUint(uint64(v), 10)
+}
+
 type Uint32View uint32
 
 func AsUint32(v View, err error) (Uint32View, error) {
@@ -414,6 +423,10 @@ func (v Uint32View) HashTreeRoot(h HashFn) Root {
 
 func (v Uint32View) Type() TypeDef {
 	return Uint32Type
+}
+
+func (v Uint32View) String() string {
+	return strconv.FormatUint(uint64(v), 10)
 }
 
 type Uint64View uint64
@@ -507,6 +520,10 @@ func (v Uint64View) MarshalJSON() ([]byte, error) {
 
 func (v *Uint64View) UnmarshalJSON(b []byte) error {
 	return conv.Uint64Unmarshal((*uint64)(v), b)
+}
+
+func (v Uint64View) String() string {
+	return strconv.FormatUint(uint64(v), 10)
 }
 
 type BoolMeta uint8
@@ -694,4 +711,12 @@ func (v BoolView) HashTreeRoot(h HashFn) Root {
 
 func (v BoolView) Type() TypeDef {
 	return BoolType
+}
+
+func (v BoolView) String() string {
+	if v {
+		return "true"
+	} else {
+		return "false"
+	}
 }

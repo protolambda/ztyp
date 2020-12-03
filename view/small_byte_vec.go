@@ -117,6 +117,10 @@ func (v SmallByteVecView) UnmarshalText(text []byte) error {
 	return conv.FixedBytesUnmarshalText(v, text)
 }
 
+func (v SmallByteVecView) String() string {
+	return conv.BytesString(v)
+}
+
 const Bytes4Type SmallByteVecMeta = 4
 const Bytes8Type SmallByteVecMeta = 8
 const Bytes16Type SmallByteVecMeta = 16

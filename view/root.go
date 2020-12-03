@@ -112,3 +112,7 @@ func (r *RootView) MarshalText() ([]byte, error) {
 func (r *RootView) UnmarshalText(text []byte) error {
 	return conv.FixedBytesUnmarshalText(r[:], text)
 }
+
+func (r *RootView) String() string {
+	return conv.BytesString(r[:])
+}

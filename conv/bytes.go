@@ -5,6 +5,15 @@ import (
 	"fmt"
 )
 
+func BytesString(b []byte) string {
+	l := 2 + (len(b) * 2)
+	res := make([]byte, l, l)
+	res[0] = '0'
+	res[1] = 'x'
+	hex.Encode(res[2:], b)
+	return string(res)
+}
+
 func BytesMarshalText(b []byte) ([]byte, error) {
 	l := 2 + (len(b) * 2)
 	res := make([]byte, l, l)
