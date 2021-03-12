@@ -1,6 +1,9 @@
 package bitfields
 
-import "fmt"
+import (
+	"fmt"
+	"math/bits"
+)
 
 // Helper function to implement Bitvector with.
 // It checks if:
@@ -39,4 +42,13 @@ func BitvectorCheckLastByte(last byte, n uint64) error {
 		return fmt.Errorf("bitvector last byte 0b%b has not expected %d bits in last byte", last, expectedBitsLen)
 	}
 	return nil
+}
+
+// Counts the bits set to 1. Assumes the bitvector with length not a multiple of 8 has trailing zero bits.
+func BitvectorOnesCount(v []byte) uint64 {
+	count := uint64(0)
+	for i := 0; i < len(v); i++ {
+		count += uint64(bits.OnesCount8(v[i]))
+	}
+	return count
 }

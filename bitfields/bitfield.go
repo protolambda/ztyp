@@ -1,5 +1,7 @@
 package bitfields
 
+import "fmt"
+
 // Note: bitfield indices and lengths are generally all uint32, as this is used in SSZ for lengths too.
 
 // General base interface for Bitlists and Bitvectors
@@ -80,4 +82,22 @@ func IsZeroBitlist(b []byte) bool {
 	// now check the last bit, but ignore the delimiter 1 bit.
 	last ^= byte(1) << BitIndex(last)
 	return last == 0
+}
+
+// Returns true if bf only has bits set to 1 that bitfield af also has set to 1
+// For bitlists and bitvectors, the trailing part is always the same if the bitlength is the same.
+// So the result is independent of having a delimiting bit or not.
+func Covers(af []byte, bf []byte) (bool, error) {
+	if a, b := len(af), len(bf); a != b {
+		return false, fmt.Errorf("bitfield byte-length mismatch: %d <> %d", a, b)
+	}
+	// both bitfields have the same delimiter bit set (and same zero padding), if any.
+	// We can ignore it, it won't change the outcome.
+	for i := 0; i < len(bf); i++ {
+		// if there are any bits set in b, that are not also set in a, then a does not cover.
+		if bf[i]&^af[i] != 0 {
+			return false, nil
+		}
+	}
+	return true, nil
 }

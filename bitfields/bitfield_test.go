@@ -180,3 +180,41 @@ func TestIsZeroBitlist(t *testing.T) {
 		})
 	}
 }
+
+func TestCovers(t *testing.T) {
+	cases := []struct {
+		a      []byte
+		b      []byte
+		covers bool
+		err    bool
+	}{
+		{[]byte{0}, []byte{}, false, true},
+		{[]byte{}, []byte{0}, false, true},
+		{[]byte{0}, []byte{1}, false, false},
+		{[]byte{1}, []byte{0}, true, false},
+		{[]byte{0xff}, []byte{0}, true, false},
+		{[]byte{2}, []byte{0xff}, false, false},
+		{[]byte{0xf0}, []byte{0x10}, true, false},
+		{[]byte{0xf0}, []byte{0x0f}, false, false},
+		{[]byte{0xff, 0xff}, []byte{0, 0}, true, false},
+		{[]byte{0xff, 0xf0}, []byte{0, 0}, true, false},
+		{[]byte{0xff, 0xf0}, []byte{0, 3}, false, false},
+		{[]byte{0xff, 0xf0}, []byte{1, 3}, false, false},
+		{[]byte{0xff, 0xff, 0xff}, []byte{0xff, 0xff}, false, true},
+		{[]byte{0xff, 0xff, 0xff}, []byte{0xff, 0x7f, 0xff}, true, false},
+	}
+	for _, testCase := range cases {
+		t.Run(fmt.Sprintf("covers check %b <> %b (%v)", testCase.a, testCase.b, testCase.covers), func(t *testing.T) {
+			if res, err := Covers(testCase.a, testCase.b); (err != nil) != testCase.err {
+				if err == nil {
+					t.Errorf("expected covers error result between %b <> %b", testCase.a, testCase.b)
+				} else {
+					t.Errorf("expected covers error %q between %b <> %b", err.Error(), testCase.a, testCase.b)
+				}
+			} else if res != testCase.covers {
+				t.Errorf("unexpected covers result between %b <> %b. Expected: %v, got: %v",
+					testCase.a, testCase.b, testCase.covers, res)
+			}
+		})
+	}
+}

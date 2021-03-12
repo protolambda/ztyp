@@ -3,6 +3,7 @@ package bitfields
 import (
 	"errors"
 	"fmt"
+	"math/bits"
 )
 
 // Returns the length of the bitlist.
@@ -53,4 +54,23 @@ func BitlistCheckLastByte(last byte, limit uint64) error {
 		return errors.New("bitlist is invalid, too many bits")
 	}
 	return nil
+}
+
+// Counts the bits set to 1, excluding the delimiter bit.
+func BitlistOnesCount(v []byte) uint64 {
+	if len(v) == 0 {
+		return 0
+	}
+	count := uint64(0)
+	for i := 0; i < len(v)-1; i++ {
+		count += uint64(bits.OnesCount8(v[i]))
+	}
+	last := v[len(v)-1]
+	if last == 0 { // trailing zero byte is technically an invalid bitlist, but we can ignore it.
+		return count
+	}
+	// ignore the delimiter bit.
+	last ^= uint8(1) << BitIndex(last)
+	count += uint64(bits.OnesCount8(last))
+	return count
 }
