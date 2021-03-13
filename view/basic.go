@@ -259,7 +259,7 @@ func AsUint16(v View, err error) (Uint16View, error) {
 	}
 	n, ok := v.(Uint16View)
 	if !ok {
-		return 0, fmt.Errorf("not a uint8 view: %v", v)
+		return 0, fmt.Errorf("not a uint16 view: %v", v)
 	}
 	return n, nil
 }
@@ -348,7 +348,7 @@ func AsUint32(v View, err error) (Uint32View, error) {
 	}
 	n, ok := v.(Uint32View)
 	if !ok {
-		return 0, fmt.Errorf("not a uint8 view: %v", v)
+		return 0, fmt.Errorf("not a uint32 view: %v", v)
 	}
 	return n, nil
 }
@@ -437,7 +437,7 @@ func AsUint64(v View, err error) (Uint64View, error) {
 	}
 	n, ok := v.(Uint64View)
 	if !ok {
-		return 0, fmt.Errorf("not a uint8 view: %v", v)
+		return 0, fmt.Errorf("not a uint64 view: %v", v)
 	}
 	return n, nil
 }

@@ -70,6 +70,28 @@ func (h HashFn) ChunksHTR(chunks ChunksHTR, length uint64, limit uint64) Root {
 	return Merkleize(h, length, limit, chunks)
 }
 
+func (h HashFn) Uint8VectorHTR(v func(i uint64) uint8, length uint64) Root {
+	// 32 items per chunk
+	chunks := (length + 31) >> 5
+	return h.ChunksHTR(func(i uint64) (out Root) {
+		for x, j := 0, i<<5; x < 32 && j < length; j, x = j+1, x+1 {
+			out[x] = v(j)
+		}
+		return
+	}, chunks, chunks)
+}
+
+func (h HashFn) Uint8ListHTR(v func(i uint64) uint8, length uint64, limit uint64) Root {
+	// 32 items per chunk
+	chunks := (length + 31) >> 5
+	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
+		for x, j := 0, i<<5; x < 32 && j < length; j, x = j+1, x+1 {
+			out[x] = v(j)
+		}
+		return
+	}, chunks, (limit+31)>>5), length)
+}
+
 func (h HashFn) Uint64VectorHTR(v func(i uint64) uint64, length uint64) Root {
 	// 4 items per chunk
 	chunks := (length + 3) >> 2
