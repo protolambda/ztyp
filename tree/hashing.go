@@ -117,37 +117,39 @@ func (h HashFn) Uint64ListHTR(v func(i uint64) uint64, length uint64, limit uint
 func (h HashFn) ByteVectorHTR(values []byte) Root {
 	chunks := (uint64(len(values)) + 31) / 32
 	return h.ChunksHTR(func(i uint64) (out Root) {
-		copy(out[:], values[i*32:])
+		copy(out[:], values[i<<5:])
 		return
 	}, chunks, chunks)
 }
 
 func (h HashFn) ByteListHTR(values []byte, limit uint64) Root {
 	chunks := (uint64(len(values)) + 31) / 32
+	chunkLimit := (limit + 31) / 32
 	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
-		copy(out[:], values[i*32:])
+		copy(out[:], values[i<<5:])
 		return
-	}, chunks, (limit+3)>>2), uint64(len(values)))
+	}, chunks, chunkLimit), uint64(len(values)))
 }
 
 func (h HashFn) BitVectorHTR(bits []byte) Root {
-	bitLen := bitfields.BitlistLen(bits)
-	// it's a vector, chunkLen is also chunkLimit
-	chunkLen := (bitLen + 0xff) >> 8
+	// it's a vector, chunks is also chunkLimit.
+	// The bits are already packed in bytes, just divide by 32 (rounding up).
+	chunks := (uint64(len(bits)) + 31) / 32
 	return h.ChunksHTR(func(i uint64) (out Root) {
-		if i < chunkLen {
-			copy(out[:], bits[i<<8:])
+		if i < chunks {
+			copy(out[:], bits[i<<5:])
 			// no delimiter bits in bit vectors
 		}
 		return
-	}, chunkLen, chunkLen)
+	}, chunks, chunks)
 }
 
 func (h HashFn) BitListHTR(bits []byte, bitlimit uint64) Root {
 	bitLen := bitfields.BitlistLen(bits)
-	chunkLen := (bitLen + 0xff) >> 8
+	chunks := (bitLen + 0xff) >> 8
+	chunkLimit := (bitlimit + 0xff) >> 8
 	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
-		if i < chunkLen {
+		if i < chunks {
 			copy(out[:], bits[i<<8:])
 			// mask out delimit bit if necessary
 			if ((i + 1) << 8) > bitLen {
@@ -155,7 +157,7 @@ func (h HashFn) BitListHTR(bits []byte, bitlimit uint64) Root {
 			}
 		}
 		return
-	}, chunkLen, (bitlimit+0xff)>>8), bitLen)
+	}, chunks, chunkLimit), bitLen)
 }
 
 func sha256Combi(a Root, b Root) Root {
