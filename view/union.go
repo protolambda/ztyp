@@ -20,14 +20,15 @@ func UnionType(options []TypeDef) *UnionTypeDef {
 	minSize := uint64(0)
 	maxSize := uint64(0)
 
-	if options[0] == nil {
-		minSize = 0
-	} else {
+	if options[0] != nil {
 		minSize = options[0].MinByteLength()
 		maxSize = options[0].MaxByteLength()
 	}
 
-	for _, t := range options {
+	for i, t := range options {
+		if t == nil {
+			panic(fmt.Errorf("union type option %d should not be nil, only option 0 can be nil", i))
+		}
 		min, max := t.MinByteLength(), t.MaxByteLength()
 		if min < minSize {
 			minSize = min
@@ -38,8 +39,9 @@ func UnionType(options []TypeDef) *UnionTypeDef {
 	}
 	return &UnionTypeDef{
 		ComplexTypeBase: ComplexTypeBase{
-			MinSize:     minSize,
-			MaxSize:     maxSize,
+			// Add the selector length
+			MinSize:     minSize + 1,
+			MaxSize:     maxSize + 1,
 			Size:        0,
 			IsFixedSize: false,
 		},
