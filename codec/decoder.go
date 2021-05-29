@@ -391,7 +391,7 @@ func (dr *DecodingReader) Container(fields ...Deserializable) error {
 	return nil
 }
 
-// Deserialize a Union, the selectFn is called to retrieve a destination to deserialize into.
+// Deserialize a Union, the selectFn is called to retrieve a destination to deserialize into, and remember the selector.
 // The selectFn can return a nil when there is nothing to decode (when Union is used as an Optional)
 func (dr *DecodingReader) Union(selectFn func(selector uint8) (Deserializable, error)) error {
 	selector, err := dr.ReadByte()
