@@ -78,28 +78,29 @@ func (c *PairNode) Setter(target Gindex, expand bool) (Link, error) {
 			return c.RebindRight, nil
 		}
 	}
+	if target.IsLeft() {
+		return DeeperSetter(c.RebindLeft, c.LeftChild, target, expand)
+	} else {
+		return DeeperSetter(c.RebindRight, c.RightChild, target, expand)
+	}
+}
+
+// target.IsRoot() and target.IsClose() must both be false.
+// The link and node args are the first step into the path, i.e. at depth 1, not the anchor node.
+func DeeperSetter(link Link, node Node, target Gindex, expand bool) (Link, error) {
 	iter, depth := target.BitIter()
 	if depth < 2 {
 		panic("expected depth to be at least 2 since IsClose() is false")
 	}
 	// ignore first "ok": we already know we are not "close" (one bit child)
 	// This is the first child bit: gindex 2 vs 3
-	right, _ := iter.Next()
-	var link Link
-	var node Node
-	if right {
-		link = c.RebindRight
-		node = c.RightChild
-	} else {
-		link = c.RebindLeft
-		node = c.LeftChild
-	}
+	_, _ = iter.Next()
+
 	depth -= 1
 	// now on to the second child bit: gindex 4/6 vs 5/7
 	var err error
 	for {
-		var ok bool
-		right, ok = iter.Next()
+		right, ok := iter.Next()
 		if !ok {
 			break
 		}
@@ -129,7 +130,7 @@ func (c *PairNode) Setter(target Gindex, expand bool) (Link, error) {
 }
 
 func (c *PairNode) SummarizeInto(target Gindex, h HashFn) (SummaryLink, error) {
-	return summaryInto(c, target, h)
+	return SummaryInto(c, target, h)
 }
 
 func (c *PairNode) MerkleRoot(h HashFn) Root {

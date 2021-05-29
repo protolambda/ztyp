@@ -1,6 +1,9 @@
 package tree
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+)
 
 type Gindex interface {
 	// Subtree returns the same gindex, but with the anchor moved one bit to the right, to represent the subtree position.
@@ -24,6 +27,8 @@ type Gindex interface {
 	// Iterate over the bits of the gindex
 	// The depth is excl. the "root" bit
 	BitIter() (iter GindexBitIter, depth uint32)
+	// Encode the gindex as little-endian byte array. An invalid gindex (<= 0) must return nil.
+	LittleEndian() []byte
 }
 
 type GindexBitIter interface {
@@ -87,6 +92,28 @@ func (v Gindex64) BitIter() (iter GindexBitIter, depth uint32) {
 		Marker: 1 << d,
 		Gindex: uint64(v),
 	}, uint32(d)
+}
+
+func (v Gindex64) LittleEndian() []byte {
+	if v == 0 {
+		return nil
+	}
+	var out [8]byte
+	binary.LittleEndian.PutUint64(out[:], uint64(v))
+	s := 1
+	if v >= 1<<32 {
+		v >>= 32
+		s += 4
+	}
+	if v >= 1<<16 {
+		v >>= 16
+		s += 2
+	}
+	if v >= 1<<8 {
+		v >>= 8
+		s += 1
+	}
+	return out[:s]
 }
 
 func ToGindex64(index uint64, depth uint8) (Gindex64, error) {

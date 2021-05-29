@@ -34,7 +34,8 @@ type Node interface {
 	MerkleRoot(h HashFn) Root
 }
 
-func summaryInto(n Node, target Gindex, h HashFn) (SummaryLink, error) {
+// SummaryInto creates a SummaryLink that collapses the subtree at the target Gindex into just the root
+func SummaryInto(n Node, target Gindex, h HashFn) (SummaryLink, error) {
 	setter, err := n.Setter(target, false)
 	if err != nil {
 		return nil, err
