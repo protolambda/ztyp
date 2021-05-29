@@ -29,6 +29,8 @@ type Gindex interface {
 	BitIter() (iter GindexBitIter, depth uint32)
 	// Encode the gindex as little-endian byte array. An invalid gindex (<= 0) must return nil.
 	LittleEndian() []byte
+	// Encode the gindex as big-endian byte array. An invalid gindex (<= 0) must return nil.
+	BigEndian() []byte
 }
 
 type GindexBitIter interface {
@@ -114,6 +116,28 @@ func (v Gindex64) LittleEndian() []byte {
 		s += 1
 	}
 	return out[:s]
+}
+
+func (v Gindex64) BigEndian() []byte {
+	if v == 0 {
+		return nil
+	}
+	var out [8]byte
+	binary.BigEndian.PutUint64(out[:], uint64(v))
+	s := 7
+	if v >= 1<<32 {
+		v >>= 32
+		s -= 4
+	}
+	if v >= 1<<16 {
+		v >>= 16
+		s -= 2
+	}
+	if v >= 1<<8 {
+		v >>= 8
+		s -= 1
+	}
+	return out[s:]
 }
 
 func ToGindex64(index uint64, depth uint8) (Gindex64, error) {
