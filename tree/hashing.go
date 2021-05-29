@@ -163,7 +163,11 @@ func (h HashFn) BitListHTR(bits []byte, bitlimit uint64) Root {
 func (h HashFn) Union(selector uint8, value HTR) Root {
 	var selectorNode Root
 	selectorNode[0] = selector
-	return h(value.HashTreeRoot(h), selectorNode)
+	if value == nil {
+		return h(Root{}, selectorNode)
+	} else {
+		return h(value.HashTreeRoot(h), selectorNode)
+	}
 }
 
 func sha256Combi(a Root, b Root) Root {

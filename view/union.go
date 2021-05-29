@@ -50,7 +50,13 @@ func UnionType(options []TypeDef) *UnionTypeDef {
 func (td *UnionTypeDef) FromView(selector uint8, v View) (*UnionView, error) {
 	var selectorNode Root
 	selectorNode[0] = selector
-	rootNode := NewPairNode(v.Backing(), &selectorNode)
+	var content Node
+	if v == nil {
+		content = new(Root)
+	} else {
+		content = v.Backing()
+	}
+	rootNode := NewPairNode(content, &selectorNode)
 	conView, err := td.ViewFromBacking(rootNode, nil)
 	if err != nil {
 		return nil, err
@@ -97,6 +103,9 @@ func (td *UnionTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
 		return nil, fmt.Errorf("type selector is too large: %d (%d options)", selector, len(td.Options))
 	}
 	option := td.Options[selector]
+	if option == nil {
+		return td.FromView(selector, nil)
+	}
 	subView, err := option.Deserialize(dr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode union element (selector %d, scope %d): %v", selector, scope, err)
@@ -161,6 +170,7 @@ func (tv *UnionView) Selector() (uint8, error) {
 	return root[0], nil
 }
 
+// Return the value. May be nil if it's a Union[None, T...]
 func (tv *UnionView) Value() (View, error) {
 	selector, err := tv.Selector()
 	if err != nil {
@@ -170,13 +180,20 @@ func (tv *UnionView) Value() (View, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not access union content node: %v", err)
 	}
-	return tv.Options[selector].ViewFromBacking(content, nil)
+	option := tv.Options[selector]
+	if option == nil {
+		return nil, nil
+	}
+	return option.ViewFromBacking(content, nil)
 }
 
 func (tv *UnionView) ValueByteLength() (uint64, error) {
 	contentView, err := tv.Value()
 	if err != nil {
 		return 0, fmt.Errorf("failed to interpret content")
+	}
+	if contentView == nil {
+		return 1, nil
 	}
 	contentSize, err := contentView.ValueByteLength()
 	// add 1 for the selector byte
@@ -195,18 +212,33 @@ func (tv *UnionView) Serialize(w *codec.EncodingWriter) error {
 	if err != nil {
 		return fmt.Errorf("could not access union content node: %v", err)
 	}
-	v, err := tv.Options[selector].ViewFromBacking(content, nil)
+	option := tv.Options[selector]
+	if option == nil {
+		return nil
+	}
+	v, err := option.ViewFromBacking(content, nil)
 	if err != nil {
 		return fmt.Errorf("invalid value content node: %v", err)
 	}
 	return v.Serialize(w)
 }
 
-func (tv *UnionView) Change(selector uint8, view View) error {
+// Changes the union selector and value. Does not check the view type.
+// The value may be nil in the Union[None, T...] case.
+func (tv *UnionView) Change(selector uint8, value View) error {
 	if selector >= uint8(len(tv.Options)) {
 		return fmt.Errorf("out of range selector: %v (%d options)", selector, len(tv.Options))
 	}
 	var selectorNode Root
 	selectorNode[0] = selector
-	return tv.BackedView.SetBacking(NewPairNode(&selectorNode, view.Backing()))
+	var contentNode Node
+	if value == nil {
+		if selector != 0 {
+			return fmt.Errorf("only the 0 selector can be used for nil values, got %d", selector)
+		}
+		contentNode = new(Root)
+	} else {
+		contentNode = value.Backing()
+	}
+	return tv.BackedView.SetBacking(NewPairNode(&selectorNode, contentNode))
 }

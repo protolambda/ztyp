@@ -205,9 +205,16 @@ func (ew *EncodingWriter) Container(fields ...Serializable) error {
 	return nil
 }
 
+// Serialize a Union. The value
 func (ew *EncodingWriter) Union(selector uint8, value Serializable) error {
 	if err := ew.WriteByte(selector); err != nil {
 		return fmt.Errorf("failed to write union selector (%d): %v", selector, err)
+	}
+	if value == nil {
+		if selector != 0 {
+			return fmt.Errorf("cannot serialize nil value, only 0 selector can be None, got %d", selector)
+		}
+		return nil
 	}
 	if err := value.Serialize(ew); err != nil {
 		return fmt.Errorf("failed to write union value (selcector %v, value type %T): ", selector, value)
