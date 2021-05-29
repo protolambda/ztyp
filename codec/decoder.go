@@ -390,3 +390,15 @@ func (dr *DecodingReader) Container(fields ...Deserializable) error {
 	}
 	return nil
 }
+
+func (dr *DecodingReader) Union(selectFn func(selector uint8) (Deserializable, error)) error {
+	selector, err := dr.ReadByte()
+	if err != nil {
+		return fmt.Errorf("fialed to read union selector: %v", err)
+	}
+	dest, err := selectFn(selector)
+	if err != nil {
+		return fmt.Errorf("failed to select union option, with selector %d: %v", selector, err)
+	}
+	return dest.Deserialize(dr)
+}

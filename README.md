@@ -30,6 +30,7 @@ Construction:
     - Typed views allow you to interact with a backing in typed ways:
         - Basic types: `Uint64Type`, `Uint32Type`, `Uint16Type`, `Uint8Type`, `BoolType`
         - Composite types: `Container`, `ComplexList`, `ComplexVector`
+        - Union type: `UnionType`
         - Basic composite types (to enable packing of consecutive elements): `BasicList`, `BasicVector`
         - Bitfields: `BitVector`, `BitList`
         - Optimized small byte vectors: `SmallByteVecMeta`: to derive any `BytesN` (`N <= 32`) from.

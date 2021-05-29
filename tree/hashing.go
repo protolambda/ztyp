@@ -160,6 +160,12 @@ func (h HashFn) BitListHTR(bits []byte, bitlimit uint64) Root {
 	}, chunks, chunkLimit), bitLen)
 }
 
+func (h HashFn) Union(selector uint8, value HTR) Root {
+	var selectorNode Root
+	selectorNode[0] = selector
+	return h(value.HashTreeRoot(h), selectorNode)
+}
+
 func sha256Combi(a Root, b Root) Root {
 	v := [64]byte{}
 	copy(v[:32], a[:])
