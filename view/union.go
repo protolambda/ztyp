@@ -25,7 +25,7 @@ func UnionType(options []TypeDef) *UnionTypeDef {
 		maxSize = options[0].MaxByteLength()
 	}
 
-	for i, t := range options {
+	for i, t := range options[1:] {
 		if t == nil {
 			panic(fmt.Errorf("union type option %d should not be nil, only option 0 can be nil", i))
 		}
