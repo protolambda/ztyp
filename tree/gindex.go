@@ -31,6 +31,8 @@ type Gindex interface {
 	LittleEndian() []byte
 	// Encode the gindex as big-endian byte array. An invalid gindex (<= 0) must return nil.
 	BigEndian() []byte
+	// LeftAlignedBigEndian returns the bits shifted such that the anchor bit is the left-most
+	LeftAlignedBigEndian() (data []byte, bitLen uint32)
 }
 
 type GindexBitIter interface {
@@ -138,6 +140,17 @@ func (v Gindex64) BigEndian() []byte {
 		s -= 1
 	}
 	return out[s:]
+}
+
+func (v Gindex64) LeftAlignedBigEndian() (data []byte, bitLen uint32) {
+	if v == 0 {
+		return nil, 0
+	}
+	bitLen8 := BitLength(uint64(v))
+	leftAligned := uint64(v) << (64 - bitLen8)
+	var out [8]byte
+	binary.BigEndian.PutUint64(out[:], leftAligned)
+	return out[:(bitLen8 + 7) >> 3], uint32(bitLen8)
 }
 
 func ToGindex64(index uint64, depth uint8) (Gindex64, error) {
