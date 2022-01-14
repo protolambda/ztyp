@@ -150,7 +150,7 @@ func (v Gindex64) LeftAlignedBigEndian() (data []byte, bitLen uint32) {
 	leftAligned := uint64(v) << (64 - bitLen8)
 	var out [8]byte
 	binary.BigEndian.PutUint64(out[:], leftAligned)
-	return out[:(bitLen8 + 7) >> 3], uint32(bitLen8)
+	return out[:(bitLen8+7)>>3], uint32(bitLen8)
 }
 
 func ToGindex64(index uint64, depth uint8) (Gindex64, error) {
