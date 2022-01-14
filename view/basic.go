@@ -237,6 +237,28 @@ func (v Uint8View) Type() TypeDef {
 	return Uint8Type
 }
 
+func (v Uint8View) MarshalText() (out []byte, err error) {
+	out = strconv.AppendUint(out, uint64(v), 10)
+	return
+}
+
+func (v *Uint8View) UnmarshalText(b []byte) error {
+	n, err := strconv.ParseUint(string(b), 0, 8)
+	if err != nil {
+		return err
+	}
+	*v = Uint8View(n)
+	return nil
+}
+
+func (v Uint8View) MarshalJSON() ([]byte, error) {
+	return conv.Uint8Marshal(uint8(v))
+}
+
+func (v *Uint8View) UnmarshalJSON(b []byte) error {
+	return conv.Uint8Unmarshal((*uint8)(v), b)
+}
+
 func (v Uint8View) String() string {
 	return strconv.FormatUint(uint64(v), 10)
 }
@@ -336,6 +358,28 @@ func (v Uint16View) Type() TypeDef {
 	return Uint16Type
 }
 
+func (v Uint16View) MarshalText() (out []byte, err error) {
+	out = strconv.AppendUint(out, uint64(v), 10)
+	return
+}
+
+func (v *Uint16View) UnmarshalText(b []byte) error {
+	n, err := strconv.ParseUint(string(b), 0, 16)
+	if err != nil {
+		return err
+	}
+	*v = Uint16View(n)
+	return nil
+}
+
+func (v Uint16View) MarshalJSON() ([]byte, error) {
+	return conv.Uint16Marshal(uint16(v))
+}
+
+func (v *Uint16View) UnmarshalJSON(b []byte) error {
+	return conv.Uint16Unmarshal((*uint16)(v), b)
+}
+
 func (v Uint16View) String() string {
 	return strconv.FormatUint(uint64(v), 10)
 }
@@ -423,6 +467,28 @@ func (v Uint32View) HashTreeRoot(h HashFn) Root {
 
 func (v Uint32View) Type() TypeDef {
 	return Uint32Type
+}
+
+func (v Uint32View) MarshalText() (out []byte, err error) {
+	out = strconv.AppendUint(out, uint64(v), 10)
+	return
+}
+
+func (v *Uint32View) UnmarshalText(b []byte) error {
+	n, err := strconv.ParseUint(string(b), 0, 32)
+	if err != nil {
+		return err
+	}
+	*v = Uint32View(n)
+	return nil
+}
+
+func (v Uint32View) MarshalJSON() ([]byte, error) {
+	return conv.Uint32Marshal(uint32(v))
+}
+
+func (v *Uint32View) UnmarshalJSON(b []byte) error {
+	return conv.Uint32Unmarshal((*uint32)(v), b)
 }
 
 func (v Uint32View) String() string {
