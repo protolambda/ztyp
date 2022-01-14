@@ -77,7 +77,7 @@ func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
 	case Uint256Type:
 		var out Uint256View
 		out.setBytes32(v[:])
-		return &out, nil
+		return out, nil
 	default:
 		return nil, UnsupportedUintType
 	}
@@ -101,7 +101,7 @@ func (td UintMeta) BasicViewFromBacking(v *Root, i uint8) (BasicView, error) {
 	case Uint256Type:
 		var out Uint256View
 		out.setBytes32(v[:])
-		return &out, nil
+		return out, nil
 	default:
 		return nil, UnsupportedUintType
 	}
@@ -159,7 +159,7 @@ func (td UintMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
 	case Uint256Type:
 		var out Uint256View
 		err := out.Deserialize(dr)
-		return &out, err
+		return out, err
 	default:
 		return nil, UnsupportedUintType
 	}
