@@ -73,21 +73,6 @@ func TestUint64View_UnmarshalJSON(t *testing.T) {
 				t.Errorf("unexpected value: %v", res)
 			}
 		})
-		// technically not valid, but still useful
-		t.Run(c.s+"_single_quoted", func(t *testing.T) {
-			expected := Uint64View(c.n)
-			var res Uint64View
-			b := []byte{'\''}
-			b = append(b, c.s...)
-			b = append(b, '\'')
-			err := res.UnmarshalJSON(b)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if res != expected {
-				t.Errorf("unexpected value: %v", res)
-			}
-		})
 	}
 	bad := []string{
 		``, `"`, `""`, `''`, `""0""`, `"0""`, `""0"`, `"0'`, `'0'"`, `""0''`,

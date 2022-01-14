@@ -28,7 +28,7 @@ Construction:
     - Convert a `Root` and sub-index into a typed sub-view by attaching a basic type definition.
 - a `View` is used to interact with a subtree. A general view only tracks its backing.
     - Typed views allow you to interact with a backing in typed ways:
-        - Basic types: `Uint64Type`, `Uint32Type`, `Uint16Type`, `Uint8Type`, `BoolType`
+        - Basic types: `Uint256Type`, `Uint64Type`, `Uint32Type`, `Uint16Type`, `Uint8Type`, `BoolType` (`uint128` is not supported)
         - Composite types: `Container`, `ComplexList`, `ComplexVector`
         - Union type: `UnionType`
         - Basic composite types (to enable packing of consecutive elements): `BasicList`, `BasicVector`

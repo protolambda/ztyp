@@ -2,12 +2,42 @@ package conv
 
 import (
 	"errors"
+	"fmt"
+	"github.com/holiman/uint256"
+	"math/big"
 	"strconv"
 )
 
 var DestNilErr = errors.New("destination is nil")
 var EmptyInputErr = errors.New("input is empty")
 var MissingQuoteErr = errors.New("input has quote open without close")
+
+func Uint256Unmarshal(v *uint256.Int, b []byte) error {
+	if v == nil {
+		return DestNilErr
+	}
+	if len(b) == 0 {
+		return EmptyInputErr
+	}
+	if b[0] == '"' {
+		if len(b) == 1 || b[len(b)-1] != b[0] {
+			return MissingQuoteErr
+		}
+		b = b[1 : len(b)-1]
+	}
+	x := new(big.Int)
+	err := x.UnmarshalText(b)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal Uint256View: %w", err)
+	}
+	if x.Sign() < 0 {
+		return strconv.ErrRange
+	}
+	if v.SetFromBig(x) {
+		return strconv.ErrRange
+	}
+	return nil
+}
 
 // Parse a uint of bitSize bits into a uint64, with or without quotes, in any base,
 // with common prefixes accepted to change base.
@@ -61,6 +91,11 @@ func Uint8Unmarshal(v *uint8, b []byte) error {
 	}
 	*v = uint8(x)
 	return nil
+}
+
+// Uint256Marshal to decimal number, with quotes
+func Uint256Marshal(v *uint256.Int) ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%d\"", v)), nil
 }
 
 // Uint64Marshal to decimal number, with quotes

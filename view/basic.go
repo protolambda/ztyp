@@ -23,6 +23,10 @@ func (td UintMeta) Default(_ BackingHook) View {
 		return Uint32View(0)
 	case Uint64Type:
 		return Uint64View(0)
+	case Uint128Type:
+		return nil
+	case Uint256Type:
+		return Uint256View{}
 	default:
 		// unsupported uint type
 		return nil
@@ -43,6 +47,10 @@ func (td UintMeta) New() BasicView {
 		return Uint32View(0)
 	case Uint64Type:
 		return Uint64View(0)
+	case Uint128Type:
+		return nil
+	case Uint256Type:
+		return Uint256View{}
 	default:
 		return nil
 	}
@@ -64,6 +72,12 @@ func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
 		return Uint32View(binary.LittleEndian.Uint32(v[:4])), nil
 	case Uint64Type:
 		return Uint64View(binary.LittleEndian.Uint64(v[:8])), nil
+	case Uint128Type:
+		return nil, UnsupportedUintType
+	case Uint256Type:
+		var out Uint256View
+		out.setBytes32(v[:])
+		return &out, nil
 	default:
 		return nil, UnsupportedUintType
 	}
@@ -82,6 +96,12 @@ func (td UintMeta) BasicViewFromBacking(v *Root, i uint8) (BasicView, error) {
 		return Uint32View(binary.LittleEndian.Uint32(v[4*i : 4*i+4])), nil
 	case Uint64Type:
 		return Uint64View(binary.LittleEndian.Uint64(v[8*i : 8*i+8])), nil
+	case Uint128Type:
+		return nil, UnsupportedUintType
+	case Uint256Type:
+		var out Uint256View
+		out.setBytes32(v[:])
+		return &out, nil
 	default:
 		return nil, UnsupportedUintType
 	}
@@ -134,6 +154,12 @@ func (td UintMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
 	case Uint64Type:
 		v, err := dr.ReadUint64()
 		return Uint64View(v), err
+	case Uint128Type:
+		return nil, UnsupportedUintType
+	case Uint256Type:
+		var out Uint256View
+		err := out.Deserialize(dr)
+		return &out, err
 	default:
 		return nil, UnsupportedUintType
 	}
@@ -144,10 +170,12 @@ func (td UintMeta) String() string {
 }
 
 const (
-	Uint8Type  UintMeta = 1
-	Uint16Type UintMeta = 2
-	Uint32Type UintMeta = 4
-	Uint64Type UintMeta = 8
+	Uint8Type   UintMeta = 1
+	Uint16Type  UintMeta = 2
+	Uint32Type  UintMeta = 4
+	Uint64Type  UintMeta = 8
+	Uint128Type UintMeta = 16
+	Uint256Type UintMeta = 32
 )
 
 var BasicViewNoSetBackingError = errors.New("basic views cannot set new backing")
@@ -578,6 +606,20 @@ func (v Uint64View) HashTreeRoot(h HashFn) Root {
 
 func (v Uint64View) Type() TypeDef {
 	return Uint64Type
+}
+
+func (v Uint64View) MarshalText() (out []byte, err error) {
+	out = strconv.AppendUint(out, uint64(v), 10)
+	return
+}
+
+func (v *Uint64View) UnmarshalText(b []byte) error {
+	n, err := strconv.ParseUint(string(b), 0, 64)
+	if err != nil {
+		return err
+	}
+	*v = Uint64View(n)
+	return nil
 }
 
 func (v Uint64View) MarshalJSON() ([]byte, error) {
