@@ -150,7 +150,7 @@ func (h HashFn) BitListHTR(bits []byte, bitlimit uint64) Root {
 	chunkLimit := (bitlimit + 0xff) >> 8
 	return h.Mixin(h.ChunksHTR(func(i uint64) (out Root) {
 		if i < chunks {
-			copy(out[:], bits[i<<8:])
+			copy(out[:], bits[i<<5:])
 			// mask out delimit bit if necessary
 			if ((i + 1) << 8) > bitLen {
 				out[(bitLen&0xff)>>3] &^= 1 << (bitLen & 0x7)
