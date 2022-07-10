@@ -24,6 +24,10 @@ func BitVectorType(length uint64) *BitVectorTypeDef {
 	}
 }
 
+func (td *BitVectorTypeDef) Mask() TypeDef[View] {
+	return Mask[*BitVectorView, *BitVectorTypeDef]{td}
+}
+
 func (td *BitVectorTypeDef) FromBits(bits []bool) (*BitVectorView, error) {
 	if uint64(len(bits)) != td.BitLength {
 		return nil, fmt.Errorf("got %d bits, expected %d bits", len(bits), td.BitLength)
@@ -36,7 +40,7 @@ func (td *BitVectorTypeDef) FromBits(bits []bool) (*BitVectorView, error) {
 	depth := CoverDepth(td.BottomNodeLength())
 	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
 	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view.(*BitVectorView), nil
+	return view, nil
 }
 
 func (td *BitVectorTypeDef) Length() uint64 {
@@ -48,14 +52,11 @@ func (td *BitVectorTypeDef) DefaultNode() Node {
 	return SubtreeFillToDepth(&ZeroHashes[0], depth)
 }
 
-func (td *BitVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+func (td *BitVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (*BitVectorView, error) {
 	depth := CoverDepth(td.BottomNodeLength())
 	return &BitVectorView{
 		SubtreeView: SubtreeView{
 			BackedView: BackedView{
-				ViewBase: ViewBase{
-					TypeDef: td,
-				},
 				Hook:        hook,
 				BackingNode: node,
 			},
@@ -69,16 +70,16 @@ func (td *BitVectorTypeDef) BottomNodeLength() uint64 {
 	return (td.BitLength + 0xff) >> 8
 }
 
-func (td *BitVectorTypeDef) Default(hook BackingHook) View {
+func (td *BitVectorTypeDef) Default(hook BackingHook) *BitVectorView {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v
 }
 
 func (td *BitVectorTypeDef) New() *BitVectorView {
-	return td.Default(nil).(*BitVectorView)
+	return td.Default(nil)
 }
 
-func (td *BitVectorTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (td *BitVectorTypeDef) Deserialize(dr *codec.DecodingReader) (*BitVectorView, error) {
 	scope := dr.Scope()
 	if td.Size != scope {
 		return nil, fmt.Errorf("expected size %d does not match scope %d", td.Size, scope)
@@ -100,7 +101,7 @@ func (td *BitVectorTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) 
 	depth := CoverDepth(td.BottomNodeLength())
 	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
 	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view.(*BitVectorView), nil
+	return view, nil
 }
 
 func (td *BitVectorTypeDef) String() string {
@@ -121,6 +122,10 @@ func AsBitVector(v View, err error) (*BitVectorView, error) {
 		return nil, fmt.Errorf("view is not a bitvector: %v", v)
 	}
 	return bv, nil
+}
+
+func (tv *BitVectorView) Type() TypeDef[View] {
+	return tv.BitVectorTypeDef.Mask()
 }
 
 func (tv *BitVectorView) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {
@@ -144,7 +149,7 @@ func (tv *BitVectorView) Get(i uint64) (BoolView, error) {
 	if err != nil {
 		return false, err
 	}
-	return BoolType.BoolViewFromBitfieldBacking(r, subIndex)
+	return BoolType{}.BoolViewFromBitfieldBacking(r, subIndex)
 }
 
 func (tv *BitVectorView) Set(i uint64, v BoolView) error {
@@ -158,10 +163,10 @@ func (tv *BitVectorView) Set(i uint64, v BoolView) error {
 	return tv.SubtreeView.SetNode(bottomIndex, v.BackingFromBitfieldBase(r, subIndex))
 }
 
-func (tv *BitVectorView) Copy() (View, error) {
+func (tv *BitVectorView) Copy() *BitVectorView {
 	tvCopy := *tv
 	tvCopy.Hook = nil
-	return &tvCopy, nil
+	return &tvCopy
 }
 
 func (tv *BitVectorView) Iter() BitIter {

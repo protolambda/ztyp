@@ -13,45 +13,45 @@ import (
 )
 
 var SingleFieldTestStructType = ContainerType("SingleFieldTestStruct", []FieldDef{
-	{Name: "A", Type: ByteType},
+	{Name: "A", Type: ByteType{}.Mask()},
 })
 
 var SmallTestStructType = ContainerType("SmallTestStruct", []FieldDef{
-	{Name: "A", Type: Uint16Type},
-	{Name: "B", Type: Uint16Type},
+	{Name: "A", Type: Uint16Type{}.Mask()},
+	{Name: "B", Type: Uint16Type{}.Mask()},
 })
 
 var FixedTestStructType = ContainerType("FixedTestStruct", []FieldDef{
-	{Name: "A", Type: Uint8Type},
-	{Name: "B", Type: Uint64Type},
-	{Name: "C", Type: Uint32Type},
+	{Name: "A", Type: Uint8Type{}.Mask()},
+	{Name: "B", Type: Uint64Type{}.Mask()},
+	{Name: "C", Type: Uint32Type{}.Mask()},
 })
 
 var VarTestStructType = ContainerType("VarTestStruct", []FieldDef{
-	{Name: "A", Type: Uint16Type},
-	{Name: "B", Type: ListType(Uint16Type, 1024)},
-	{Name: "C", Type: Uint8Type},
+	{Name: "A", Type: Uint16Type{}.Mask()},
+	{Name: "B", Type: BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).Mask()},
+	{Name: "C", Type: Uint8Type{}.Mask()},
 })
 
 var ComplexTestStructType = ContainerType("ComplexTestStruct", []FieldDef{
-	{Name: "A", Type: Uint16Type},
-	{Name: "B", Type: ListType(Uint16Type, 128)},
-	{Name: "C", Type: Uint8Type},
-	{Name: "D", Type: ListType(ByteType, 256)},
-	{Name: "E", Type: VarTestStructType},
-	{Name: "F", Type: VectorType(FixedTestStructType, 4)},
-	{Name: "G", Type: VectorType(VarTestStructType, 2)},
+	{Name: "A", Type: Uint16Type{}.Mask()},
+	{Name: "B", Type: BasicListType[Uint16View, Uint16Type](Uint16Type{}, 128).Mask()},
+	{Name: "C", Type: Uint8Type{}.Mask()},
+	{Name: "D", Type: BasicListType[ByteView, ByteType](ByteType{}, 256).Mask()},
+	{Name: "E", Type: VarTestStructType.Mask()},
+	{Name: "F", Type: ComplexVectorType[*ContainerView, *ContainerTypeDef](FixedTestStructType, 4).Mask()},
+	{Name: "G", Type: ComplexVectorType[*ContainerView, *ContainerTypeDef](VarTestStructType, 2).Mask()},
 })
 
-var ListAType = ComplexListType(SmallTestStructType, 4)
-var ListBType = ComplexListType(VarTestStructType, 8)
+var ListAType = ComplexListType[*ContainerView, *ContainerTypeDef](SmallTestStructType, 4)
+var ListBType = ComplexListType[*ContainerView, *ContainerTypeDef](VarTestStructType, 8)
 
 var ListStructType = ContainerType("ComplexTestStruct", []FieldDef{
-	{Name: "A", Type: ListAType},
-	{Name: "B", Type: ListBType},
+	{Name: "A", Type: ListAType.Mask()},
+	{Name: "B", Type: ListBType.Mask()},
 })
 
-var SigType = BasicVectorType(ByteType, 96)
+var SigType = BasicVectorType[ByteView, ByteType](ByteType{}, 96)
 var sigBytes = [96]byte{0: 1, 32: 2, 64: 3, 95: 0xff}
 var SigView, _ = SigType.Deserialize(codec.NewDecodingReader(bytes.NewReader(sigBytes[:]), 96))
 
@@ -90,7 +90,7 @@ type sszTestCase struct {
 	// name of test
 	name string
 	// any value
-	value View
+	value TypedView
 	// hex formatted, no prefix
 	hex string
 	// hex formatted, no prefix
@@ -136,7 +136,7 @@ func init() {
 		return v
 	}
 
-	viewMust := func(v View, err error) View {
+	viewMust := func(v TypedView, err error) TypedView {
 		if err != nil {
 			panic(err)
 		}
@@ -175,7 +175,7 @@ func init() {
 		{"uint32 00000000", Uint32View(0x00000000), "00000000", chunk("00000000")},
 		{"uint32 01234567", Uint32View(0x01234567), "67452301", chunk("67452301")},
 		{"small {4567, 0123}", viewMust(SmallTestStructType.FromFields(Uint16View(0x4567), Uint16View(0x0123))), "67452301", h(chunk("6745"), chunk("2301"))},
-		{"small [4567, 0123]::2", viewMust(BasicVectorType(Uint16Type, 2).FromElements(Uint16View(0x4567), Uint16View(0x0123))), "67452301", chunk("67452301")},
+		{"small [4567, 0123]::2", viewMust(BasicVectorType[Uint16View, Uint16Type](Uint16Type{}, 2).FromElements(Uint16View(0x4567), Uint16View(0x0123))), "67452301", chunk("67452301")},
 		{"uint32 01234567", Uint32View(0x01234567), "67452301", chunk("67452301")},
 		{"uint64 0000000000000000", Uint64View(0), "0000000000000000", chunk("0000000000000000")},
 		{"uint64 0123456789abcdef", Uint64View(0x0123456789abcdef), "efcdab8967452301", chunk("efcdab8967452301")},
@@ -227,26 +227,26 @@ func init() {
 		//   h(h(h(chunk("03"), chunk("")), zero_hashes[1]), chunk("")))),
 		{"singleFieldTestStruct", viewMust(SingleFieldTestStructType.FromFields(Uint16View(0xab))), "ab", chunk("ab")},
 
-		{"uint16 list", viewMust(BasicListType(Uint16Type, 32).FromElements(Uint16View(0xaabb), Uint16View(0xc0ad), Uint16View(0xeeff))), "bbaaadc0ffee",
+		{"uint16 list", viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 32).FromElements(Uint16View(0xaabb), Uint16View(0xc0ad), Uint16View(0xeeff))), "bbaaadc0ffee",
 			h(h(chunk("bbaaadc0ffee"), chunk("")), chunk("03000000")), // max length: 32 * 2 = 64 bytes = 2 chunks
 		},
-		{"uint32 list", viewMust(BasicListType(Uint32Type, 128).FromElements(Uint32View(0xaabb), Uint32View(0xc0ad), Uint32View(0xeeff))), "bbaa0000adc00000ffee0000",
+		{"uint32 list", viewMust(BasicListType[Uint32View, Uint32Type](Uint32Type{}, 128).FromElements(Uint32View(0xaabb), Uint32View(0xc0ad), Uint32View(0xeeff))), "bbaa0000adc00000ffee0000",
 			// max length: 128 * 4 = 512 bytes = 16 chunks
 			h(merge(chunk("bbaa0000adc00000ffee0000"), zeroHashes[0:4]), chunk("03000000")),
 		},
-		{"bytes32 list", viewMust(ComplexListType(RootType, 64).FromElements(&RootView{0xbb, 0xaa}, &RootView{0xad, 0xc0}, &RootView{0xff, 0xee})),
+		{"bytes32 list", viewMust(ComplexListType[*RootView, RootMeta](RootType, 64).FromElements(&RootView{0xbb, 0xaa}, &RootView{0xad, 0xc0}, &RootView{0xff, 0xee})),
 			"bbaa000000000000000000000000000000000000000000000000000000000000" +
 				"adc0000000000000000000000000000000000000000000000000000000000000" +
 				"ffee000000000000000000000000000000000000000000000000000000000000",
 			h(merge(h(h(chunk("bbaa"), chunk("adc0")), h(chunk("ffee"), chunk(""))), zeroHashes[2:6]), chunk("03000000")),
 		},
-		{"uint256 list", viewMust(ComplexListType(Uint256Type, 64).FromElements(&Uint256View{0: 0xaabb}, &Uint256View{0: 0xc0ad}, &Uint256View{0: 0xeeff})),
+		{"uint256 list", viewMust(ComplexListType[Uint256View, Uint256Type](Uint256Type{}, 64).FromElements(&Uint256View{0: 0xaabb}, &Uint256View{0: 0xc0ad}, &Uint256View{0: 0xeeff})),
 			"bbaa000000000000000000000000000000000000000000000000000000000000" +
 				"adc0000000000000000000000000000000000000000000000000000000000000" +
 				"ffee000000000000000000000000000000000000000000000000000000000000",
 			h(merge(h(h(chunk("bbaa"), chunk("adc0")), h(chunk("ffee"), chunk(""))), zeroHashes[2:6]), chunk("03000000")),
 		},
-		{"bytes32 list long", viewMust(ComplexListType(RootType, 128).FromElements(
+		{"bytes32 list long", viewMust(ComplexListType[*RootView, RootMeta](RootType, 128).FromElements(
 			&RootView{1}, &RootView{2}, &RootView{3}, &RootView{4}, &RootView{5}, &RootView{6}, &RootView{7}, &RootView{8}, &RootView{9}, &RootView{10},
 			&RootView{11}, &RootView{12}, &RootView{13}, &RootView{14}, &RootView{15}, &RootView{16}, &RootView{17}, &RootView{18}, &RootView{19},
 		)),
@@ -285,13 +285,13 @@ func init() {
 		},
 		{"fixedTestStruct", viewMust(FixedTestStructType.FromFields(Uint8View(0xab), Uint64View(0xaabbccdd00112233), Uint32View(0x12345678))), "ab33221100ddccbbaa78563412",
 			h(h(chunk("ab"), chunk("33221100ddccbbaa")), h(chunk("78563412"), chunk("")))},
-		{"VarTestStruct empty", viewMust(VarTestStructType.FromFields(Uint16View(0xabcd), BasicListType(Uint16Type, 1024).New(), Uint8View(0xff))), "cdab07000000ff",
+		{"VarTestStruct empty", viewMust(VarTestStructType.FromFields(Uint16View(0xabcd), BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).New(), Uint8View(0xff))), "cdab07000000ff",
 			// log2(1024*2/32)= 6 deep
 			h(h(chunk("cdab"), h(zeroHashes[6], chunk("00000000"))), h(chunk("ff"), chunk("")))},
 		{"VarTestStruct some", viewMust(
 			VarTestStructType.FromFields(
 				Uint16View(0xabcd),
-				viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))),
+				viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))),
 				Uint8View(0xff))),
 			"cdab07000000ff010002000300",
 			h(
@@ -310,9 +310,9 @@ func init() {
 		},
 		{"empty list", ListAType.New(), "", h(zeroHashes[2], chunk("00000000"))},
 		{"empty var element list", ListBType.New(), "", h(zeroHashes[3], chunk("00000000"))},
-		{"var element list", viewMust(ComplexListType(VarTestStructType, 8).FromElements(
-			viewMust(VarTestStructType.FromFields(Uint16View(0xdead), viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))), Uint8View(0x11))),
-			viewMust(VarTestStructType.FromFields(Uint16View(0xbeef), viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(4), Uint16View(5), Uint16View(6))), Uint8View(0x22))),
+		{"var element list", viewMust(ComplexListType[*ContainerView, *ContainerTypeDef](VarTestStructType, 8).FromElements(
+			viewMust(VarTestStructType.FromFields(Uint16View(0xdead), viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))), Uint8View(0x11))),
+			viewMust(VarTestStructType.FromFields(Uint16View(0xbeef), viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).FromElements(Uint16View(4), Uint16View(5), Uint16View(6))), Uint8View(0x22))),
 		)),
 			"08000000" + "15000000" +
 				"adde0700000011010002000300" +
@@ -355,28 +355,28 @@ func init() {
 		{"complexTestStruct",
 			viewMust(ComplexTestStructType.FromFields(
 				Uint16View(0xaabb),
-				viewMust(BasicListType(Uint16Type, 128).FromElements(Uint16View(0x1122), Uint16View(0x3344))),
+				viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 128).FromElements(Uint16View(0x1122), Uint16View(0x3344))),
 				Uint8View(0xff),
-				viewMust(BasicListType(ByteType, 256).FromElements(ByteView('f'), ByteView('o'), ByteView('o'), ByteView('b'), ByteView('a'), ByteView('r'))),
+				viewMust(BasicListType[ByteView, ByteType](ByteType{}, 256).FromElements(ByteView('f'), ByteView('o'), ByteView('o'), ByteView('b'), ByteView('a'), ByteView('r'))),
 				viewMust(
 					VarTestStructType.FromFields(
 						Uint16View(0xabcd),
-						viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))),
+						viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))),
 						Uint8View(0xff))),
-				viewMust(ComplexVectorType(FixedTestStructType, 4).FromElements(
+				viewMust(ComplexVectorType[*ContainerView, *ContainerTypeDef](FixedTestStructType, 4).FromElements(
 					viewMust(FixedTestStructType.FromFields(Uint8View(0xcc), Uint64View(0x4242424242424242), Uint32View(0x13371337))),
 					viewMust(FixedTestStructType.FromFields(Uint8View(0xdd), Uint64View(0x3333333333333333), Uint32View(0xabcdabcd))),
 					viewMust(FixedTestStructType.FromFields(Uint8View(0xee), Uint64View(0x4444444444444444), Uint32View(0x00112233))),
 					viewMust(FixedTestStructType.FromFields(Uint8View(0xff), Uint64View(0x5555555555555555), Uint32View(0x44556677))),
 				)),
-				viewMust(ComplexVectorType(VarTestStructType, 2).FromElements(
+				viewMust(ComplexVectorType[*ContainerView, *ContainerTypeDef](VarTestStructType, 2).FromElements(
 					viewMust(VarTestStructType.FromFields(
 						Uint16View(0xdead),
-						viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))),
+						viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).FromElements(Uint16View(1), Uint16View(2), Uint16View(3))),
 						Uint8View(0x11))),
 					viewMust(VarTestStructType.FromFields(
 						Uint16View(0xbeef),
-						viewMust(BasicListType(Uint16Type, 1024).FromElements(Uint16View(4), Uint16View(5), Uint16View(6))),
+						viewMust(BasicListType[Uint16View, Uint16Type](Uint16Type{}, 1024).FromElements(Uint16View(4), Uint16View(5), Uint16View(6))),
 						Uint8View(0x22))),
 				)),
 			)),

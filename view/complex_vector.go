@@ -6,13 +6,15 @@ import (
 	. "github.com/protolambda/ztyp/tree"
 )
 
-type ComplexVectorTypeDef struct {
-	ElemType     TypeDef
+type ComplexVectorTypeDef[EV View, ET TypeDef[EV]] struct {
+	ElemType     ET
 	VectorLength uint64
 	ComplexTypeBase
 }
 
-func ComplexVectorType(elemType TypeDef, length uint64) *ComplexVectorTypeDef {
+var _ TypeDef[*ComplexVectorView[View, TypeDef[View]]] = (*ComplexVectorTypeDef[View, TypeDef[View]])(nil)
+
+func ComplexVectorType[EV View, ET TypeDef[EV]](elemType ET, length uint64) *ComplexVectorTypeDef[EV, ET] {
 	minSize := uint64(0)
 	maxSize := uint64(0)
 	size := uint64(0)
@@ -25,7 +27,7 @@ func ComplexVectorType(elemType TypeDef, length uint64) *ComplexVectorTypeDef {
 		minSize = length * (elemType.MinByteLength() + OffsetByteLength)
 		maxSize = length * (elemType.MaxByteLength() + OffsetByteLength)
 	}
-	return &ComplexVectorTypeDef{
+	return &ComplexVectorTypeDef[EV, ET]{
 		ElemType:     elemType,
 		VectorLength: length,
 		ComplexTypeBase: ComplexTypeBase{
@@ -37,7 +39,11 @@ func ComplexVectorType(elemType TypeDef, length uint64) *ComplexVectorTypeDef {
 	}
 }
 
-func (td *ComplexVectorTypeDef) FromElements(v ...View) (*ComplexVectorView, error) {
+func (td *ComplexVectorTypeDef[EV, ET]) Mask() TypeDef[View] {
+	return Mask[*ComplexVectorView[EV, ET], *ComplexVectorTypeDef[EV, ET]]{T: td}
+}
+
+func (td *ComplexVectorTypeDef[EV, ET]) FromElements(v ...View) (*ComplexVectorView[EV, ET], error) {
 	if td.VectorLength != uint64(len(v)) {
 		return nil, fmt.Errorf("expected %d elements, got %d", td.VectorLength, len(v))
 	}
@@ -48,18 +54,18 @@ func (td *ComplexVectorTypeDef) FromElements(v ...View) (*ComplexVectorView, err
 	depth := CoverDepth(td.VectorLength)
 	rootNode, _ := SubtreeFillToContents(nodes, depth)
 	vecView, _ := td.ViewFromBacking(rootNode, nil)
-	return vecView.(*ComplexVectorView), nil
+	return vecView, nil
 }
 
-func (td *ComplexVectorTypeDef) ElementType() TypeDef {
+func (td *ComplexVectorTypeDef[EV, ET]) ElementType() ET {
 	return td.ElemType
 }
 
-func (td *ComplexVectorTypeDef) Length() uint64 {
+func (td *ComplexVectorTypeDef[EV, ET]) Length() uint64 {
 	return td.VectorLength
 }
 
-func (td *ComplexVectorTypeDef) DefaultNode() Node {
+func (td *ComplexVectorTypeDef[EV, ET]) DefaultNode() Node {
 	depth := CoverDepth(td.VectorLength)
 	// The same node N times: the node is immutable, so re-use is safe.
 	defaultNode := td.ElemType.DefaultNode()
@@ -68,14 +74,11 @@ func (td *ComplexVectorTypeDef) DefaultNode() Node {
 	return rootNode
 }
 
-func (td *ComplexVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+func (td *ComplexVectorTypeDef[EV, ET]) ViewFromBacking(node Node, hook BackingHook) (*ComplexVectorView[EV, ET], error) {
 	depth := CoverDepth(td.VectorLength)
-	return &ComplexVectorView{
+	return &ComplexVectorView[EV, ET]{
 		SubtreeView: SubtreeView{
 			BackedView: BackedView{
-				ViewBase: ViewBase{
-					TypeDef: td,
-				},
 				Hook:        hook,
 				BackingNode: node,
 			},
@@ -85,16 +88,16 @@ func (td *ComplexVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (Vi
 	}, nil
 }
 
-func (td *ComplexVectorTypeDef) Default(hook BackingHook) View {
+func (td *ComplexVectorTypeDef[EV, ET]) Default(hook BackingHook) *ComplexVectorView[EV, ET] {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v
 }
 
-func (td *ComplexVectorTypeDef) New() *ComplexVectorView {
-	return td.Default(nil).(*ComplexVectorView)
+func (td *ComplexVectorTypeDef[EV, ET]) New() *ComplexVectorView[EV, ET] {
+	return td.Default(nil)
 }
 
-func (td *ComplexVectorTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (td *ComplexVectorTypeDef[EV, ET]) Deserialize(dr *codec.DecodingReader) (*ComplexVectorView[EV, ET], error) {
 	scope := dr.Scope()
 	if td.IsFixedSize {
 		elemSize := td.ElemType.TypeByteLength()
@@ -155,86 +158,94 @@ func (td *ComplexVectorTypeDef) Deserialize(dr *codec.DecodingReader) (View, err
 	}
 }
 
-func (td *ComplexVectorTypeDef) String() string {
+func (td *ComplexVectorTypeDef[EV, ET]) String() string {
 	return fmt.Sprintf("Vector[%s, %d]", td.ElemType.String(), td.VectorLength)
 }
 
-type ComplexVectorView struct {
+type ComplexVectorView[EV View, ET TypeDef[EV]] struct {
 	SubtreeView
-	*ComplexVectorTypeDef
+	*ComplexVectorTypeDef[EV, ET]
 }
 
-func AsComplexVector(v View, err error) (*ComplexVectorView, error) {
+var _ View = (*ComplexVectorView[View, TypeDef[View]])(nil)
+
+func AsComplexVector[EV View, ET TypeDef[EV]](v View, err error) (*ComplexVectorView[EV, ET], error) {
 	if err != nil {
 		return nil, err
 	}
-	c, ok := v.(*ComplexVectorView)
+	c, ok := v.(*ComplexVectorView[EV, ET])
 	if !ok {
 		return nil, fmt.Errorf("view is not a vector: %v", v)
 	}
 	return c, nil
 }
 
-func (tv *ComplexVectorView) Get(i uint64) (View, error) {
+func (tv *ComplexVectorView[EV, ET]) Type() TypeDef[View] {
+	return tv.ComplexVectorTypeDef.Mask()
+}
+
+func (tv *ComplexVectorView[EV, ET]) Get(i uint64) (EV, error) {
+	var out EV
 	if i >= tv.ComplexVectorTypeDef.VectorLength {
-		return nil, fmt.Errorf("cannot get item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.VectorLength)
+		return out, fmt.Errorf("cannot get item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.VectorLength)
 	}
 	v, err := tv.SubtreeView.GetNode(i)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	return tv.ComplexVectorTypeDef.ElemType.ViewFromBacking(v, tv.ItemHook(i))
 }
 
-func (tv *ComplexVectorView) Set(i uint64, v View) error {
+func (tv *ComplexVectorView[EV, ET]) Set(i uint64, v EV) error {
 	return tv.setNode(i, v.Backing())
 }
 
-func (tv *ComplexVectorView) setNode(i uint64, b Node) error {
+func (tv *ComplexVectorView[EV, ET]) setNode(i uint64, b Node) error {
 	if i >= tv.ComplexVectorTypeDef.VectorLength {
 		return fmt.Errorf("cannot set item at element index %d, vector only has %d elements", i, tv.ComplexVectorTypeDef.VectorLength)
 	}
 	return tv.SubtreeView.SetNode(i, b)
 }
 
-func (tv *ComplexVectorView) ItemHook(i uint64) BackingHook {
+func (tv *ComplexVectorView[EV, ET]) ItemHook(i uint64) BackingHook {
 	return func(b Node) error {
 		return tv.setNode(i, b)
 	}
 }
 
-func (tv *ComplexVectorView) Copy() (View, error) {
+func (tv *ComplexVectorView[EV, ET]) Copy() *ComplexVectorView[EV, ET] {
 	tvCopy := *tv
 	tvCopy.Hook = nil
-	return &tvCopy, nil
+	return &tvCopy
 }
 
-func (tv *ComplexVectorView) Iter() ElemIter {
+func (tv *ComplexVectorView[EV, ET]) Iter() ElemIter[EV, ET] {
 	i := uint64(0)
-	return ElemIterFn(func() (elem View, ok bool, err error) {
+	return ElemIterFn[EV, ET](func() (elem EV, elemType ET, ok bool, err error) {
 		if i < tv.VectorLength {
 			elem, err = tv.Get(i)
 			ok = true
+			elemType = tv.ElemType
 			i += 1
 			return
 		} else {
-			return nil, false, nil
+			return
 		}
 	})
 }
 
-func (tv *ComplexVectorView) ReadonlyIter() ElemIter {
-	return elemReadonlyIter(tv.BackingNode, tv.VectorLength, tv.depth, tv.ElemType)
+func (tv *ComplexVectorView[EV, ET]) ReadonlyIter() ElemIter[EV, ET] {
+	return elemReadonlyIter[EV, ET](tv.BackingNode, tv.VectorLength, tv.depth, tv.ElemType)
 }
 
-func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
+func (tv *ComplexVectorView[EV, ET]) ValueByteLength() (uint64, error) {
 	if tv.IsFixedSize {
 		return tv.Size, nil
 	} else {
 		size := tv.VectorLength * OffsetByteLength
 		iter := tv.ReadonlyIter()
 		for {
-			elem, ok, err := iter.Next()
+			elem, _, ok, err := iter.Next()
 			if err != nil {
 				return 0, err
 			}
@@ -251,7 +262,7 @@ func (tv *ComplexVectorView) ValueByteLength() (uint64, error) {
 	}
 }
 
-func (tv *ComplexVectorView) Serialize(w *codec.EncodingWriter) error {
+func (tv *ComplexVectorView[EV, ET]) Serialize(w *codec.EncodingWriter) error {
 	if tv.IsFixedSize {
 		return serializeComplexFixElemSeries(tv.ReadonlyIter(), w)
 	} else {

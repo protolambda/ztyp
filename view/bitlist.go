@@ -24,6 +24,10 @@ func BitListType(limit uint64) *BitListTypeDef {
 	}
 }
 
+func (td *BitListTypeDef) Mask() TypeDef[View] {
+	return Mask[*BitListView, *BitListTypeDef]{td}
+}
+
 func (td *BitListTypeDef) FromBits(bits []bool) (*BitListView, error) {
 	if uint64(len(bits)) > td.BitLimit {
 		return nil, fmt.Errorf("got %d bits, expected no more than %d bits", len(bits), td.BitLimit)
@@ -37,7 +41,7 @@ func (td *BitListTypeDef) FromBits(bits []bool) (*BitListView, error) {
 	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
 	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(bits)).Backing()}
 	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view.(*BitListView), nil
+	return view, nil
 }
 
 func (td *BitListTypeDef) Limit() uint64 {
@@ -49,14 +53,11 @@ func (td *BitListTypeDef) DefaultNode() Node {
 	return &PairNode{LeftChild: &ZeroHashes[depth], RightChild: &ZeroHashes[0]}
 }
 
-func (td *BitListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+func (td *BitListTypeDef) ViewFromBacking(node Node, hook BackingHook) (*BitListView, error) {
 	depth := CoverDepth(td.BottomNodeLimit())
 	return &BitListView{
 		SubtreeView: SubtreeView{
 			BackedView: BackedView{
-				ViewBase: ViewBase{
-					TypeDef: td,
-				},
 				Hook:        hook,
 				BackingNode: node,
 			},
@@ -70,16 +71,16 @@ func (td *BitListTypeDef) BottomNodeLimit() uint64 {
 	return (td.BitLimit + 0xff) >> 8
 }
 
-func (td *BitListTypeDef) Default(hook BackingHook) View {
+func (td *BitListTypeDef) Default(hook BackingHook) *BitListView {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v
 }
 
 func (td *BitListTypeDef) New() *BitListView {
-	return td.Default(nil).(*BitListView)
+	return td.Default(nil)
 }
 
-func (td *BitListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (td *BitListTypeDef) Deserialize(dr *codec.DecodingReader) (*BitListView, error) {
 	scope := dr.Scope()
 	if scope == 0 {
 		return nil, fmt.Errorf("expected at least a delimit bit, bitlist scope cannot be 0")
@@ -120,7 +121,7 @@ func (td *BitListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
 	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
 	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(bitLen).Backing()}
 	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view.(*BitListView), nil
+	return view, nil
 }
 
 // Get index of left-most 1 bit.
@@ -159,6 +160,10 @@ func AsBitList(v View, err error) (*BitListView, error) {
 		return nil, fmt.Errorf("view is not a bitlist: %v", v)
 	}
 	return bv, nil
+}
+
+func (tv *BitListView) Type() TypeDef[View] {
+	return tv.BitListTypeDef.Mask()
 }
 
 func (tv *BitListView) Append(view BoolView) error {
@@ -287,7 +292,7 @@ func (tv *BitListView) Get(i uint64) (BoolView, error) {
 	if err != nil {
 		return false, err
 	}
-	return BoolType.BoolViewFromBitfieldBacking(r, subIndex)
+	return BoolType{}.BoolViewFromBitfieldBacking(r, subIndex)
 }
 
 func (tv *BitListView) Set(i uint64, v BoolView) error {
@@ -317,10 +322,10 @@ func (tv *BitListView) Length() (uint64, error) {
 	return ll, nil
 }
 
-func (tv *BitListView) Copy() (View, error) {
+func (tv *BitListView) Copy() *BitListView {
 	tvCopy := *tv
 	tvCopy.Hook = nil
-	return &tvCopy, nil
+	return &tvCopy
 }
 
 func (tv *BitListView) Iter() BitIter {

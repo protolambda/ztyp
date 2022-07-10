@@ -9,7 +9,13 @@ import (
 
 type RootMeta uint8
 
-func (m RootMeta) Default(hook BackingHook) View {
+var _ TypeDef[*RootView] = RootMeta(0)
+
+func (m RootMeta) Mask() TypeDef[View] {
+	return Mask[*RootView, RootMeta]{T: m}
+}
+
+func (m RootMeta) Default(hook BackingHook) *RootView {
 	return &RootView{}
 }
 
@@ -29,7 +35,7 @@ func (m RootMeta) MaxByteLength() uint64 {
 	return 32
 }
 
-func (m RootMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (m RootMeta) Deserialize(dr *codec.DecodingReader) (*RootView, error) {
 	v := RootView{}
 	_, err := dr.Read(v[:])
 	return &v, err
@@ -47,7 +53,7 @@ func (RootMeta) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
-func (RootMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
+func (RootMeta) ViewFromBacking(node Node, _ BackingHook) (*RootView, error) {
 	root, ok := node.(*Root)
 	if !ok {
 		return nil, fmt.Errorf("node is not a root: %v", node)
@@ -71,8 +77,8 @@ func AsRoot(v View, err error) (Root, error) {
 	return Root(*r), nil
 }
 
-func (r *RootView) Type() TypeDef {
-	return RootType
+func (r *RootView) Type() TypeDef[View] {
+	return RootType.Mask()
 }
 
 // Backing, a root can be used as a view representing itself.

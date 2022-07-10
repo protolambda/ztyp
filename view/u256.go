@@ -11,7 +11,83 @@ import (
 	"strconv"
 )
 
+type Uint256Type struct{}
+
+var _ BasicTypeDef[Uint256View] = Uint256Type{}
+
+func (Uint256Type) Default(_ BackingHook) Uint256View {
+	return Uint256View{}
+}
+
+func (Uint256Type) DefaultNode() Node {
+	return &ZeroHashes[0]
+}
+
+func (Uint256Type) New() Uint256View {
+	return Uint256View{}
+}
+
+func (td Uint256Type) Mask() TypeDef[View] {
+	return Mask[Uint256View, Uint256Type]{T: td}
+}
+
+func (Uint256Type) ViewFromBacking(node Node, _ BackingHook) (Uint256View, error) {
+	v, ok := node.(*Root)
+	if !ok {
+		return Uint256View{}, fmt.Errorf("node %T must be a root to read a uint256 from it", node)
+	}
+	var out Uint256View
+	out.setBytes32(v[:])
+	return out, nil
+}
+
+func (Uint256Type) BasicViewFromBacking(v *Root, i uint8) (Uint256View, error) {
+	if i != 0 {
+		return Uint256View{}, fmt.Errorf("cannot get uint256 at %d in 32 byte root", i)
+	}
+	var out Uint256View
+	out.setBytes32(v[:])
+	return out, nil
+}
+
+func (Uint256Type) PackViews(views []Uint256View) ([]Node, error) {
+	out := make([]Node, len(views))
+	for i := range out {
+		x := Root(views[i].Bytes32())
+		out[i] = &x
+	}
+	return out, nil
+}
+
+func (Uint256Type) IsFixedByteLength() bool {
+	return true
+}
+
+func (Uint256Type) TypeByteLength() uint64 {
+	return 32
+}
+
+func (Uint256Type) MinByteLength() uint64 {
+	return 32
+}
+
+func (Uint256Type) MaxByteLength() uint64 {
+	return 32
+}
+
+func (Uint256Type) Deserialize(dr *codec.DecodingReader) (Uint256View, error) {
+	var out Uint256View
+	err := out.Deserialize(dr)
+	return out, err
+}
+
+func (td Uint256Type) String() string {
+	return "uint256"
+}
+
 type Uint256View uint256.Int
+
+var _ BasicView = Uint256View{}
 
 func AsUint256(v View, err error) (Uint256View, error) {
 	if err != nil {
@@ -22,6 +98,10 @@ func AsUint256(v View, err error) (Uint256View, error) {
 		return Uint256View{}, fmt.Errorf("not a uint256 view: %v", v)
 	}
 	return n, nil
+}
+
+func (v Uint256View) Type() TypeDef[View] {
+	return Uint256Type{}.Mask()
 }
 
 func (v Uint256View) SetBacking(b Node) error {
@@ -113,10 +193,6 @@ func (v *Uint256View) Decode(x []byte) error {
 
 func (v Uint256View) HashTreeRoot(h HashFn) Root {
 	return v.Bytes32()
-}
-
-func (v Uint256View) Type() TypeDef {
-	return Uint256Type
 }
 
 func (v Uint256View) MarshalText() (out []byte, err error) {

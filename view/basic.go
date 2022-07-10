@@ -10,179 +10,353 @@ import (
 	"strconv"
 )
 
-// A uint type, identified by its size in bytes.
-type UintMeta uint64
-
-func (td UintMeta) Default(_ BackingHook) View {
-	switch td {
-	case Uint8Type:
-		return Uint8View(0)
-	case Uint16Type:
-		return Uint16View(0)
-	case Uint32Type:
-		return Uint32View(0)
-	case Uint64Type:
-		return Uint64View(0)
-	case Uint128Type:
-		return nil
-	case Uint256Type:
-		return Uint256View{}
-	default:
-		// unsupported uint type
-		return nil
-	}
+type UintView interface {
+	Uint8View | Uint16View | Uint32View | Uint64View | Uint256View
+	BasicView
 }
 
-func (td UintMeta) DefaultNode() Node {
+type UintType[V UintView] interface {
+	Uint8Type | Uint16Type | Uint32Type | Uint64Type | Uint256Type
+	BasicTypeDef[V]
+}
+
+type Uint8Type struct{}
+
+var _ BasicTypeDef[Uint8View] = Uint8Type{}
+
+func (Uint8Type) Default(_ BackingHook) Uint8View {
+	return 0
+}
+
+func (Uint8Type) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
-func (td UintMeta) New() BasicView {
-	switch td {
-	case Uint8Type:
-		return Uint8View(0)
-	case Uint16Type:
-		return Uint16View(0)
-	case Uint32Type:
-		return Uint32View(0)
-	case Uint64Type:
-		return Uint64View(0)
-	case Uint128Type:
-		return nil
-	case Uint256Type:
-		return Uint256View{}
-	default:
-		return nil
-	}
+func (Uint8Type) New() Uint8View {
+	return 0
 }
 
-var UnsupportedUintType = errors.New("unsupported uint type")
+func (td Uint8Type) Mask() TypeDef[View] {
+	return Mask[Uint8View, Uint8Type]{T: td}
+}
 
-func (td UintMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
+func (Uint8Type) ViewFromBacking(node Node, _ BackingHook) (Uint8View, error) {
 	v, ok := node.(*Root)
 	if !ok {
-		return nil, fmt.Errorf("node %v must be a root to read a uint%d from it", node, td*8)
+		return 0, fmt.Errorf("node %T must be a root to read a uint8 from it", node)
 	}
-	switch td {
-	case Uint8Type:
-		return Uint8View(v[0]), nil
-	case Uint16Type:
-		return Uint16View(binary.LittleEndian.Uint16(v[:2])), nil
-	case Uint32Type:
-		return Uint32View(binary.LittleEndian.Uint32(v[:4])), nil
-	case Uint64Type:
-		return Uint64View(binary.LittleEndian.Uint64(v[:8])), nil
-	case Uint128Type:
-		return nil, UnsupportedUintType
-	case Uint256Type:
-		var out Uint256View
-		out.setBytes32(v[:])
-		return out, nil
-	default:
-		return nil, UnsupportedUintType
-	}
+	return Uint8View(v[0]), nil
 }
 
-func (td UintMeta) BasicViewFromBacking(v *Root, i uint8) (BasicView, error) {
-	if uint64(i) >= (32 / uint64(td)) {
-		return nil, fmt.Errorf("cannot get subview %d for uint%d type", i, td)
+func (Uint8Type) BasicViewFromBacking(v *Root, i uint8) (Uint8View, error) {
+	if i >= 32 {
+		return 0, fmt.Errorf("cannot get uint8 at %d in 32 byte root", i)
 	}
-	switch td {
-	case Uint8Type:
-		return Uint8View(v[i]), nil
-	case Uint16Type:
-		return Uint16View(binary.LittleEndian.Uint16(v[2*i : 2*i+2])), nil
-	case Uint32Type:
-		return Uint32View(binary.LittleEndian.Uint32(v[4*i : 4*i+4])), nil
-	case Uint64Type:
-		return Uint64View(binary.LittleEndian.Uint64(v[8*i : 8*i+8])), nil
-	case Uint128Type:
-		return nil, UnsupportedUintType
-	case Uint256Type:
-		var out Uint256View
-		out.setBytes32(v[:])
-		return out, nil
-	default:
-		return nil, UnsupportedUintType
-	}
+	return Uint8View(v[i]), nil
 }
 
-func (td UintMeta) PackViews(views []BasicView) ([]Node, error) {
-	// TODO can be optimized: switch on type, put contents directly into node bytes, and don't use temporary nodes
-	perNode := uint8(32 / td)
-	chunkCount := (uint64(len(views)) + uint64(perNode) - 1) / uint64(perNode)
-	chunks := make([]Node, chunkCount, chunkCount)
-	i := 0
-	for chunk := uint64(0); chunk < chunkCount; chunk++ {
-		root := &Root{}
-		for j := uint8(0); j < perNode && i < len(views); j++ {
-			root = views[i].BackingFromBase(root, j)
-			i += 1
+func (Uint8Type) PackViews(views []Uint8View) ([]Node, error) {
+	out := make([]Node, (len(views)+31)/32)
+	j := 0
+	for i := range out {
+		var x Root
+		for h := 0; h < 32 && j < len(views); j++ {
+			x[h] = byte(views[j])
+			h++
 		}
-		chunks[chunk] = root
+		out[i] = &x
 	}
-	return chunks, nil
+	return out, nil
 }
 
-func (td UintMeta) IsFixedByteLength() bool {
+func (Uint8Type) IsFixedByteLength() bool {
 	return true
 }
 
-func (td UintMeta) TypeByteLength() uint64 {
-	return uint64(td)
+func (Uint8Type) TypeByteLength() uint64 {
+	return 1
 }
 
-func (td UintMeta) MinByteLength() uint64 {
-	return uint64(td)
+func (Uint8Type) MinByteLength() uint64 {
+	return 1
 }
 
-func (td UintMeta) MaxByteLength() uint64 {
-	return uint64(td)
+func (Uint8Type) MaxByteLength() uint64 {
+	return 1
 }
 
-func (td UintMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
-	switch td {
-	case Uint8Type:
-		v, err := dr.ReadByte()
-		return Uint8View(v), err
-	case Uint16Type:
-		v, err := dr.ReadUint16()
-		return Uint16View(v), err
-	case Uint32Type:
-		v, err := dr.ReadUint32()
-		return Uint32View(v), err
-	case Uint64Type:
-		v, err := dr.ReadUint64()
-		return Uint64View(v), err
-	case Uint128Type:
-		return nil, UnsupportedUintType
-	case Uint256Type:
-		var out Uint256View
-		err := out.Deserialize(dr)
-		return out, err
-	default:
-		return nil, UnsupportedUintType
+func (Uint8Type) Deserialize(dr *codec.DecodingReader) (Uint8View, error) {
+	v, err := dr.ReadByte()
+	return Uint8View(v), err
+}
+
+func (td Uint8Type) String() string {
+	return "uint8"
+}
+
+type Uint16Type struct{}
+
+var _ BasicTypeDef[Uint16View] = Uint16Type{}
+
+func (Uint16Type) Default(_ BackingHook) Uint16View {
+	return 0
+}
+
+func (Uint16Type) DefaultNode() Node {
+	return &ZeroHashes[0]
+}
+
+func (Uint16Type) New() Uint16View {
+	return 0
+}
+
+func (td Uint16Type) Mask() TypeDef[View] {
+	return Mask[Uint16View, Uint16Type]{T: td}
+}
+
+func (Uint16Type) ViewFromBacking(node Node, _ BackingHook) (Uint16View, error) {
+	v, ok := node.(*Root)
+	if !ok {
+		return 0, fmt.Errorf("node %T must be a root to read a uint16 from it", node)
 	}
+	return Uint16View(binary.LittleEndian.Uint16(v[0:2])), nil
 }
 
-func (td UintMeta) String() string {
-	return fmt.Sprintf("uint%d", td*8)
+func (Uint16Type) BasicViewFromBacking(v *Root, i uint8) (Uint16View, error) {
+	if i >= 16 {
+		return 0, fmt.Errorf("cannot get uint16 at %d in 32 byte root", i)
+	}
+	return Uint16View(binary.LittleEndian.Uint16(v[i<<1:])), nil
 }
 
-const (
-	Uint8Type   UintMeta = 1
-	Uint16Type  UintMeta = 2
-	Uint32Type  UintMeta = 4
-	Uint64Type  UintMeta = 8
-	Uint128Type UintMeta = 16
-	Uint256Type UintMeta = 32
-)
+func (Uint16Type) PackViews(views []Uint16View) ([]Node, error) {
+	out := make([]Node, (len(views)+15)/16)
+	j := 0
+	for i := range out {
+		var x Root
+		for h := 0; h < 32 && j < len(views); j++ {
+			x[h] = byte(views[j])
+			h++
+			x[h] = byte(views[j] >> 8)
+			h++
+		}
+		out[i] = &x
+	}
+	return out, nil
+}
+
+func (Uint16Type) IsFixedByteLength() bool {
+	return true
+}
+
+func (Uint16Type) TypeByteLength() uint64 {
+	return 2
+}
+
+func (Uint16Type) MinByteLength() uint64 {
+	return 2
+}
+
+func (Uint16Type) MaxByteLength() uint64 {
+	return 2
+}
+
+func (Uint16Type) Deserialize(dr *codec.DecodingReader) (Uint16View, error) {
+	v, err := dr.ReadUint16()
+	return Uint16View(v), err
+}
+
+func (td Uint16Type) String() string {
+	return "uint16"
+}
+
+type Uint32Type struct{}
+
+var _ BasicTypeDef[Uint32View] = Uint32Type{}
+
+func (Uint32Type) Default(_ BackingHook) Uint32View {
+	return 0
+}
+
+func (Uint32Type) DefaultNode() Node {
+	return &ZeroHashes[0]
+}
+
+func (Uint32Type) New() Uint32View {
+	return 0
+}
+
+func (td Uint32Type) Mask() TypeDef[View] {
+	return Mask[Uint32View, Uint32Type]{T: td}
+}
+
+func (Uint32Type) ViewFromBacking(node Node, _ BackingHook) (Uint32View, error) {
+	v, ok := node.(*Root)
+	if !ok {
+		return 0, fmt.Errorf("node %T must be a root to read a uint32 from it", node)
+	}
+	return Uint32View(binary.LittleEndian.Uint32(v[0:4])), nil
+}
+
+func (Uint32Type) BasicViewFromBacking(v *Root, i uint8) (Uint32View, error) {
+	if i >= 8 {
+		return 0, fmt.Errorf("cannot get uint32 at %d in 32 byte root", i)
+	}
+	return Uint32View(binary.LittleEndian.Uint32(v[i<<2:])), nil
+}
+
+func (Uint32Type) PackViews(views []Uint32View) ([]Node, error) {
+	out := make([]Node, (len(views)+7)/8)
+	j := 0
+	for i := range out {
+		var x Root
+		for h := 0; h < 32 && j < len(views); j++ {
+			y := views[j]
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+		}
+		out[i] = &x
+	}
+	return out, nil
+}
+
+func (Uint32Type) IsFixedByteLength() bool {
+	return true
+}
+
+func (Uint32Type) TypeByteLength() uint64 {
+	return 4
+}
+
+func (Uint32Type) MinByteLength() uint64 {
+	return 4
+}
+
+func (Uint32Type) MaxByteLength() uint64 {
+	return 4
+}
+
+func (Uint32Type) Deserialize(dr *codec.DecodingReader) (Uint32View, error) {
+	v, err := dr.ReadUint32()
+	return Uint32View(v), err
+}
+
+func (td Uint32Type) String() string {
+	return "uint32"
+}
+
+type Uint64Type struct{}
+
+var _ BasicTypeDef[Uint64View] = Uint64Type{}
+
+func (Uint64Type) Default(_ BackingHook) Uint64View {
+	return 0
+}
+
+func (Uint64Type) DefaultNode() Node {
+	return &ZeroHashes[0]
+}
+
+func (Uint64Type) New() Uint64View {
+	return 0
+}
+
+func (td Uint64Type) Mask() TypeDef[View] {
+	return Mask[Uint64View, Uint64Type]{T: td}
+}
+
+func (Uint64Type) ViewFromBacking(node Node, _ BackingHook) (Uint64View, error) {
+	v, ok := node.(*Root)
+	if !ok {
+		return 0, fmt.Errorf("node %T must be a root to read a uint64 from it", node)
+	}
+	return Uint64View(binary.LittleEndian.Uint64(v[0:8])), nil
+}
+
+func (Uint64Type) BasicViewFromBacking(v *Root, i uint8) (Uint64View, error) {
+	if i >= 4 {
+		return 0, fmt.Errorf("cannot get uint64 at %d in 32 byte root", i)
+	}
+	return Uint64View(binary.LittleEndian.Uint64(v[i<<3:])), nil
+}
+
+func (Uint64Type) PackViews(views []Uint64View) ([]Node, error) {
+	out := make([]Node, (len(views)+3)/4)
+	j := 0
+	for i := range out {
+		var x Root
+		for h := 0; h < 32 && j < len(views); j++ {
+			y := views[j]
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+			y >>= 8
+			x[h] = byte(y)
+			h++
+		}
+		out[i] = &x
+	}
+	return out, nil
+}
+
+func (Uint64Type) IsFixedByteLength() bool {
+	return true
+}
+
+func (Uint64Type) TypeByteLength() uint64 {
+	return 8
+}
+
+func (Uint64Type) MinByteLength() uint64 {
+	return 8
+}
+
+func (Uint64Type) MaxByteLength() uint64 {
+	return 8
+}
+
+func (Uint64Type) Deserialize(dr *codec.DecodingReader) (Uint64View, error) {
+	v, err := dr.ReadUint64()
+	return Uint64View(v), err
+}
+
+func (td Uint64Type) String() string {
+	return "uint64"
+}
 
 var BasicViewNoSetBackingError = errors.New("basic views cannot set new backing")
 
 var BadLengthError = errors.New("scope is wrong")
 
 type Uint8View uint8
+
+var _ BasicView = Uint8View(0)
 
 func AsUint8(v View, err error) (Uint8View, error) {
 	if err != nil {
@@ -214,7 +388,11 @@ func (v Uint8View) BackingFromBase(base *Root, i uint8) *Root {
 	return &newRoot
 }
 
-func (v Uint8View) Copy() (View, error) {
+func (v Uint8View) Type() TypeDef[View] {
+	return Uint8Type{}.Mask()
+}
+
+func (v Uint8View) Copy() (Uint8View, error) {
 	return v, nil
 }
 
@@ -261,10 +439,6 @@ func (v Uint8View) HashTreeRoot(h HashFn) Root {
 	return newRoot
 }
 
-func (v Uint8View) Type() TypeDef {
-	return Uint8Type
-}
-
 func (v Uint8View) MarshalText() (out []byte, err error) {
 	out = strconv.AppendUint(out, uint64(v), 10)
 	return
@@ -292,7 +466,7 @@ func (v Uint8View) String() string {
 }
 
 // Alias to Uint8Type
-const ByteType = Uint8Type
+type ByteType = Uint8Type
 
 // Alias to Uint8View
 type ByteView = Uint8View
@@ -302,6 +476,8 @@ func AsByte(v View, err error) (ByteView, error) {
 }
 
 type Uint16View uint16
+
+var _ BasicView = Uint16View(0)
 
 func AsUint16(v View, err error) (Uint16View, error) {
 	if err != nil {
@@ -316,6 +492,10 @@ func AsUint16(v View, err error) (Uint16View, error) {
 
 func (v Uint16View) SetBacking(b Node) error {
 	return BasicViewNoSetBackingError
+}
+
+func (v *Uint16View) fromBytes(b []byte) {
+	*v = Uint16View(binary.LittleEndian.Uint16(b))
 }
 
 func (v Uint16View) Backing() Node {
@@ -333,7 +513,11 @@ func (v Uint16View) BackingFromBase(base *Root, i uint8) *Root {
 	return &newRoot
 }
 
-func (v Uint16View) Copy() (View, error) {
+func (v Uint16View) Type() TypeDef[View] {
+	return Uint16Type{}.Mask()
+}
+
+func (v Uint16View) Copy() (Uint16View, error) {
 	return v, nil
 }
 
@@ -382,10 +566,6 @@ func (v Uint16View) HashTreeRoot(h HashFn) Root {
 	return newRoot
 }
 
-func (v Uint16View) Type() TypeDef {
-	return Uint16Type
-}
-
 func (v Uint16View) MarshalText() (out []byte, err error) {
 	out = strconv.AppendUint(out, uint64(v), 10)
 	return
@@ -414,6 +594,8 @@ func (v Uint16View) String() string {
 
 type Uint32View uint32
 
+var _ BasicView = Uint32View(0)
+
 func AsUint32(v View, err error) (Uint32View, error) {
 	if err != nil {
 		return 0, err
@@ -427,6 +609,10 @@ func AsUint32(v View, err error) (Uint32View, error) {
 
 func (v Uint32View) SetBacking(b Node) error {
 	return BasicViewNoSetBackingError
+}
+
+func (v *Uint32View) fromBytes(b []byte) {
+	*v = Uint32View(binary.LittleEndian.Uint32(b))
 }
 
 func (v Uint32View) Backing() Node {
@@ -444,7 +630,11 @@ func (v Uint32View) BackingFromBase(base *Root, i uint8) *Root {
 	return &newRoot
 }
 
-func (v Uint32View) Copy() (View, error) {
+func (v Uint32View) Type() TypeDef[View] {
+	return Uint32Type{}.Mask()
+}
+
+func (v Uint32View) Copy() (Uint32View, error) {
 	return v, nil
 }
 
@@ -493,10 +683,6 @@ func (v Uint32View) HashTreeRoot(h HashFn) Root {
 	return newRoot
 }
 
-func (v Uint32View) Type() TypeDef {
-	return Uint32Type
-}
-
 func (v Uint32View) MarshalText() (out []byte, err error) {
 	out = strconv.AppendUint(out, uint64(v), 10)
 	return
@@ -525,6 +711,8 @@ func (v Uint32View) String() string {
 
 type Uint64View uint64
 
+var _ BasicView = Uint64View(0)
+
 func AsUint64(v View, err error) (Uint64View, error) {
 	if err != nil {
 		return 0, err
@@ -538,6 +726,10 @@ func AsUint64(v View, err error) (Uint64View, error) {
 
 func (v Uint64View) SetBacking(b Node) error {
 	return BasicViewNoSetBackingError
+}
+
+func (v *Uint64View) fromBytes(b []byte) {
+	*v = Uint64View(binary.LittleEndian.Uint64(b))
 }
 
 func (v Uint64View) Backing() Node {
@@ -555,7 +747,11 @@ func (v Uint64View) BackingFromBase(base *Root, i uint8) *Root {
 	return &newRoot
 }
 
-func (v Uint64View) Copy() (View, error) {
+func (v Uint64View) Type() TypeDef[View] {
+	return Uint64Type{}.Mask()
+}
+
+func (v Uint64View) Copy() (Uint64View, error) {
 	return v, nil
 }
 
@@ -604,10 +800,6 @@ func (v Uint64View) HashTreeRoot(h HashFn) Root {
 	return newRoot
 }
 
-func (v Uint64View) Type() TypeDef {
-	return Uint64Type
-}
-
 func (v Uint64View) MarshalText() (out []byte, err error) {
 	out = strconv.AppendUint(out, uint64(v), 10)
 	return
@@ -634,79 +826,110 @@ func (v Uint64View) String() string {
 	return strconv.FormatUint(uint64(v), 10)
 }
 
-type BoolMeta uint8
+type BoolType struct{}
 
-func (td BoolMeta) SubViewFromBacking(v *Root, i uint8) BasicView {
-	if i >= 32 {
-		return nil
+var _ BasicTypeDef[BoolView] = BoolType{}
+
+func (BoolType) PackViews(views []BoolView) ([]Node, error) {
+	out := make([]Node, (len(views)+31)/32)
+	j := 0
+	for i := range out {
+		var x Root
+		for h := 0; h < 32 && j < len(views); j++ {
+			if views[j] {
+				x[h] = 1
+			}
+			h++
+		}
+		out[i] = &x
 	}
-	if v[i] > 1 {
-		return nil
-	}
-	return BoolView(v[i] == 1)
+	return out, nil
 }
 
-func (td BoolMeta) BoolViewFromBitfieldBacking(v *Root, i uint8) (BoolView, error) {
+func (BoolType) SubViewFromBacking(v *Root, i uint8) BoolView {
+	if i >= 32 {
+		return false
+	}
+	if v[i] > 1 {
+		return false
+	}
+	return v[i] == 1
+}
+
+func (BoolType) BasicViewFromBacking(v *Root, i uint8) (BoolView, error) {
+	if i >= 32 {
+		return false, fmt.Errorf("cannot get uint8 at %d in 32 byte root", i)
+	}
+	return v[i] == 1, nil
+}
+
+func (BoolType) BoolViewFromBitfieldBacking(v *Root, i uint8) (BoolView, error) {
 	if i > 32 {
 		return false, fmt.Errorf("out of range bit lookup in node: index: %d root: %x", i, v)
 	}
 	return (v[i>>3]>>(i&7))&1 == 1, nil
 }
 
-func (td BoolMeta) Default(_ BackingHook) View {
-	return BoolView(false)
-}
-
-func (td BoolMeta) New() BoolView {
+func (BoolType) Default(_ BackingHook) BoolView {
 	return false
 }
 
-func (td BoolMeta) DefaultNode() Node {
+func (BoolType) New() BoolView {
+	return false
+}
+
+func (BoolType) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
-func (td BoolMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
-	v, ok := node.(*Root)
-	if !ok {
-		return nil, fmt.Errorf("node %v must be a root to read a bool from it", node)
-	}
-	return BoolView(v[0] != 0), nil
+func (td BoolType) Mask() TypeDef[View] {
+	return Mask[BoolView, BoolType]{td}
 }
 
-func (td BoolMeta) IsFixedByteLength() bool {
+func (BoolType) ViewFromBacking(node Node, _ BackingHook) (BoolView, error) {
+	v, ok := node.(*Root)
+	if !ok {
+		return false, fmt.Errorf("node %v must be a root to read a bool from it", node)
+	}
+	return v[0] != 0, nil
+}
+
+func (BoolType) IsFixedByteLength() bool {
 	return true
 }
 
-func (td BoolMeta) TypeByteLength() uint64 {
+func (BoolType) TypeByteLength() uint64 {
 	return 1
 }
 
-func (td BoolMeta) MinByteLength() uint64 {
+func (BoolType) MinByteLength() uint64 {
 	return 1
 }
 
-func (td BoolMeta) MaxByteLength() uint64 {
+func (BoolType) MaxByteLength() uint64 {
 	return 1
 }
 
-func (td BoolMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (BoolType) Deserialize(dr *codec.DecodingReader) (BoolView, error) {
 	b, err := dr.ReadByte()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	if b > 1 {
-		return nil, fmt.Errorf("invalid bool value: 0x%x", b)
+		return false, fmt.Errorf("invalid bool value: 0x%x", b)
 	}
-	return BoolView(b == 1), nil
+	return b == 1, nil
 }
 
-func (td BoolMeta) String() string {
+func (BoolType) String() string {
 	return "bool"
 }
 
-const BoolType BoolMeta = 0
+var _ BasicTypeDef[BoolView] = BoolType{}
 
 type BoolView bool
+
+var _ BasicView = BoolView(false)
 
 func AsBool(v View, err error) (BoolView, error) {
 	if err != nil {
@@ -764,7 +987,11 @@ func (v BoolView) BackingFromBase(base *Root, i uint8) *Root {
 	return &newRoot
 }
 
-func (v BoolView) Copy() (View, error) {
+func (v BoolView) Type() TypeDef[View] {
+	return BoolType{}.Mask()
+}
+
+func (v BoolView) Copy() (BoolView, error) {
 	return v, nil
 }
 
@@ -796,7 +1023,7 @@ func (v *BoolView) Deserialize(r *codec.DecodingReader) error {
 	if d > 1 {
 		return fmt.Errorf("invalid bool value: 0x%x", d)
 	}
-	*v = BoolView(d > 0)
+	*v = d > 0
 	return nil
 }
 
@@ -807,7 +1034,7 @@ func (v *BoolView) Decode(x []byte) error {
 	if x[0] > 1 {
 		return fmt.Errorf("invalid bool value: 0x%x", x[0])
 	}
-	*v = BoolView(x[0] > 0)
+	*v = x[0] > 0
 	return nil
 }
 
@@ -815,10 +1042,6 @@ func (v BoolView) HashTreeRoot(h HashFn) Root {
 	newRoot := Root{}
 	newRoot[0] = v.byte()
 	return newRoot
-}
-
-func (v BoolView) Type() TypeDef {
-	return BoolType
 }
 
 func (v BoolView) String() string {

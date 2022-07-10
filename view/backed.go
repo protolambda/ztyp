@@ -3,17 +3,8 @@ package view
 import . "github.com/protolambda/ztyp/tree"
 
 type BackedView struct {
-	ViewBase
 	Hook        BackingHook
 	BackingNode Node
-}
-
-func (v *BackedView) Copy() (View, error) {
-	return v.TypeDef.ViewFromBacking(v.BackingNode, nil) // copy does not propagate changes to the same hook.
-}
-
-func (v *BackedView) Default(hook BackingHook) (View, error) {
-	return v.TypeDef.ViewFromBacking(v.BackingNode, hook)
 }
 
 func (v *BackedView) HashTreeRoot(h HashFn) Root {

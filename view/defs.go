@@ -8,19 +8,14 @@ import (
 type View interface {
 	Backing() Node
 	SetBacking(b Node) error
-	Copy() (View, error)
 	ValueByteLength() (uint64, error)
 	Serialize(w *codec.EncodingWriter) error
 	HashTreeRoot(h HashFn) Root
-	Type() TypeDef
 }
 
-type ViewBase struct {
-	TypeDef TypeDef
-}
-
-func (v *ViewBase) Type() TypeDef {
-	return v.TypeDef
+type TypedView interface {
+	View
+	Type() TypeDef[View]
 }
 
 type BackingHook func(b Node) error
@@ -33,16 +28,17 @@ func (vh BackingHook) PropagateChangeMaybe(b Node) error {
 	}
 }
 
-type TypeDef interface {
-	Default(hook BackingHook) View
+type TypeDef[V View] interface {
+	Default(hook BackingHook) V
+	Mask() TypeDef[View]
 	DefaultNode() Node
-	ViewFromBacking(node Node, hook BackingHook) (View, error)
+	ViewFromBacking(node Node, hook BackingHook) (V, error)
 	IsFixedByteLength() bool
 	// 0 if there type has no single fixed byte length
 	TypeByteLength() uint64
 	MinByteLength() uint64
 	MaxByteLength() uint64
-	Deserialize(dr *codec.DecodingReader) (View, error)
+	Deserialize(dr *codec.DecodingReader) (V, error)
 	String() string
 	// TODO: could add navigation by key/index into subtypes
 }
@@ -52,8 +48,8 @@ type BasicView interface {
 	BackingFromBase(base *Root, i uint8) *Root
 }
 
-type BasicTypeDef interface {
-	TypeDef
-	BasicViewFromBacking(node *Root, i uint8) (BasicView, error)
-	PackViews(views []BasicView) ([]Node, error)
+type BasicTypeDef[V BasicView] interface {
+	TypeDef[V]
+	BasicViewFromBacking(node *Root, i uint8) (V, error)
+	PackViews(views []V) ([]Node, error)
 }

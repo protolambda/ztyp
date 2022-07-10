@@ -41,36 +41,6 @@ func (td *ComplexTypeBase) checkScope(scope uint64) error {
 	return nil
 }
 
-type VectorTypeDef interface {
-	TypeDef
-	ElementType() TypeDef
-	Length() uint64
-}
-
-func VectorType(elemType TypeDef, length uint64) VectorTypeDef {
-	basicElemType, ok := elemType.(BasicTypeDef)
-	if ok {
-		return BasicVectorType(basicElemType, length)
-	} else {
-		return ComplexVectorType(elemType, length)
-	}
-}
-
-type ListTypeDef interface {
-	TypeDef
-	ElementType() TypeDef
-	Limit() uint64
-}
-
-func ListType(elemType TypeDef, limit uint64) ListTypeDef {
-	basicElemType, ok := elemType.(BasicTypeDef)
-	if ok {
-		return BasicListType(basicElemType, limit)
-	} else {
-		return ComplexListType(elemType, limit)
-	}
-}
-
 type ErrNodeIter struct {
 	error
 }
@@ -91,29 +61,30 @@ type NodeIter interface {
 	Next() (chunk Node, ok bool, err error)
 }
 
-type ErrElemIter struct {
+type ErrElemIter[EV View, ET TypeDef[EV]] struct {
 	error
 }
 
-func (e ErrElemIter) Next() (elem View, ok bool, err error) {
-	return nil, false, e.error
+func (e ErrElemIter[EV, ET]) Next() (elem EV, elemTyp ET, ok bool, err error) {
+	err = e.error
+	return
 }
 
-type ElemIterFn func() (elem View, ok bool, err error)
+type ElemIterFn[EV View, ET TypeDef[EV]] func() (elem EV, elemTyp ET, ok bool, err error)
 
-func (f ElemIterFn) Next() (elem View, ok bool, err error) {
-	return f()
+func (f ElemIterFn[EV, ET]) Next() (elem EV, elemTyp ET, ok bool, err error) {
+	return (func() (elem EV, elemTyp ET, ok bool, err error))(f)()
 }
 
-type ElemIter interface {
+type ElemIter[EV View, ET TypeDef[EV]] interface {
 	// Next gets the next element, ok is true if it actually exists.
 	// An error may occur if data is missing or corrupt.
-	Next() (elem View, ok bool, err error)
+	Next() (elem EV, elemTyp ET, ok bool, err error)
 }
 
-func serializeComplexFixElemSeries(iter ElemIter, w *codec.EncodingWriter) error {
+func serializeComplexFixElemSeries[EV View, ET TypeDef[EV]](iter ElemIter[EV, ET], w *codec.EncodingWriter) error {
 	for {
-		el, ok, err := iter.Next()
+		el, _, ok, err := iter.Next()
 		if err != nil {
 			return err
 		}
@@ -127,7 +98,7 @@ func serializeComplexFixElemSeries(iter ElemIter, w *codec.EncodingWriter) error
 	return nil
 }
 
-func serializeComplexVarElemSeries(length uint64, iterFn func() ElemIter, w *codec.EncodingWriter) error {
+func serializeComplexVarElemSeries[EV View, ET TypeDef[EV]](length uint64, iterFn func() ElemIter[EV, ET], w *codec.EncodingWriter) error {
 	// the previous offset, to calculate a new offset from, starting after the fixed data.
 	prevOffset := length * OffsetByteLength
 
@@ -136,7 +107,7 @@ func serializeComplexVarElemSeries(length uint64, iterFn func() ElemIter, w *cod
 	iter := iterFn()
 	// write all offsets
 	for {
-		el, ok, err := iter.Next()
+		el, _, ok, err := iter.Next()
 		if err != nil {
 			return err
 		}
@@ -156,7 +127,7 @@ func serializeComplexVarElemSeries(length uint64, iterFn func() ElemIter, w *cod
 	iter = iterFn()
 	// now write all elements
 	for {
-		el, ok, err := iter.Next()
+		el, _, ok, err := iter.Next()
 		if err != nil {
 			return err
 		}

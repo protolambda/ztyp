@@ -7,20 +7,22 @@ import (
 	. "github.com/protolambda/ztyp/tree"
 )
 
-type ComplexListTypeDef struct {
-	ElemType  TypeDef
+type ComplexListTypeDef[EV View, ET TypeDef[EV]] struct {
+	ElemType  ET
 	ListLimit uint64
 	ComplexTypeBase
 }
 
-func ComplexListType(elemType TypeDef, limit uint64) *ComplexListTypeDef {
+var _ TypeDef[*ComplexListView[View, TypeDef[View]]] = (*ComplexListTypeDef[View, TypeDef[View]])(nil)
+
+func ComplexListType[EV View, ET TypeDef[EV]](elemType ET, limit uint64) *ComplexListTypeDef[EV, ET] {
 	maxSize := uint64(0)
 	if elemType.IsFixedByteLength() {
 		maxSize = limit * elemType.TypeByteLength()
 	} else {
 		maxSize = limit * (elemType.MaxByteLength() + OffsetByteLength)
 	}
-	return &ComplexListTypeDef{
+	return &ComplexListTypeDef[EV, ET]{
 		ElemType:  elemType,
 		ListLimit: limit,
 		ComplexTypeBase: ComplexTypeBase{
@@ -32,7 +34,11 @@ func ComplexListType(elemType TypeDef, limit uint64) *ComplexListTypeDef {
 	}
 }
 
-func (td *ComplexListTypeDef) FromElements(v ...View) (*ComplexListView, error) {
+func (td *ComplexListTypeDef[EV, ET]) Mask() TypeDef[View] {
+	return Mask[*ComplexListView[EV, ET], *ComplexListTypeDef[EV, ET]]{T: td}
+}
+
+func (td *ComplexListTypeDef[EV, ET]) FromElements(v ...View) (*ComplexListView[EV, ET], error) {
 	if uint64(len(v)) > td.ListLimit {
 		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
 	}
@@ -44,31 +50,28 @@ func (td *ComplexListTypeDef) FromElements(v ...View) (*ComplexListView, error) 
 	contentsRootNode, _ := SubtreeFillToContents(nodes, depth)
 	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
 	vecView, _ := td.ViewFromBacking(rootNode, nil)
-	return vecView.(*ComplexListView), nil
+	return vecView, nil
 }
 
-func (td *ComplexListTypeDef) ElementType() TypeDef {
+func (td *ComplexListTypeDef[EV, ET]) ElementType() ET {
 	return td.ElemType
 }
 
-func (td *ComplexListTypeDef) Limit() uint64 {
+func (td *ComplexListTypeDef[EV, ET]) Limit() uint64 {
 	return td.ListLimit
 }
 
-func (td *ComplexListTypeDef) DefaultNode() Node {
+func (td *ComplexListTypeDef[EV, ET]) DefaultNode() Node {
 	depth := CoverDepth(td.ListLimit)
 	// zeroed tree with zero mix-in
 	return &PairNode{LeftChild: &ZeroHashes[depth], RightChild: &ZeroHashes[0]}
 }
 
-func (td *ComplexListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+func (td *ComplexListTypeDef[EV, ET]) ViewFromBacking(node Node, hook BackingHook) (*ComplexListView[EV, ET], error) {
 	depth := CoverDepth(td.ListLimit)
-	return &ComplexListView{
+	return &ComplexListView[EV, ET]{
 		SubtreeView: SubtreeView{
 			BackedView: BackedView{
-				ViewBase: ViewBase{
-					TypeDef: td,
-				},
 				Hook:        hook,
 				BackingNode: node,
 			},
@@ -78,16 +81,16 @@ func (td *ComplexListTypeDef) ViewFromBacking(node Node, hook BackingHook) (View
 	}, nil
 }
 
-func (td *ComplexListTypeDef) Default(hook BackingHook) View {
+func (td *ComplexListTypeDef[EV, ET]) Default(hook BackingHook) *ComplexListView[EV, ET] {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v
 }
 
-func (td *ComplexListTypeDef) New() *ComplexListView {
-	return td.Default(nil).(*ComplexListView)
+func (td *ComplexListTypeDef[EV, ET]) New() *ComplexListView[EV, ET] {
+	return td.Default(nil)
 }
 
-func (td *ComplexListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (td *ComplexListTypeDef[EV, ET]) Deserialize(dr *codec.DecodingReader) (*ComplexListView[EV, ET], error) {
 	scope := dr.Scope()
 	if scope == 0 {
 		return td.New(), nil
@@ -167,27 +170,33 @@ func (td *ComplexListTypeDef) Deserialize(dr *codec.DecodingReader) (View, error
 	}
 }
 
-func (td *ComplexListTypeDef) String() string {
+func (td *ComplexListTypeDef[EV, ET]) String() string {
 	return fmt.Sprintf("List[%s, %d]", td.ElemType.String(), td.ListLimit)
 }
 
-type ComplexListView struct {
+type ComplexListView[EV View, ET TypeDef[EV]] struct {
 	SubtreeView
-	*ComplexListTypeDef
+	*ComplexListTypeDef[EV, ET]
 }
 
-func AsComplexList(v View, err error) (*ComplexListView, error) {
+var _ View = (*ComplexListView[View, TypeDef[View]])(nil)
+
+func AsComplexList[EV View, ET TypeDef[EV]](v View, err error) (*ComplexListView[EV, ET], error) {
 	if err != nil {
 		return nil, err
 	}
-	c, ok := v.(*ComplexListView)
+	c, ok := v.(*ComplexListView[EV, ET])
 	if !ok {
 		return nil, fmt.Errorf("view is not a list: %v", v)
 	}
 	return c, nil
 }
 
-func (tv *ComplexListView) Append(v View) error {
+func (tv *ComplexListView[EV, ET]) Type() TypeDef[View] {
+	return tv.ComplexListTypeDef.Mask()
+}
+
+func (tv *ComplexListView[EV, ET]) Append(v View) error {
 	ll, err := tv.Length()
 	if err != nil {
 		return err
@@ -224,7 +233,7 @@ func (tv *ComplexListView) Append(v View) error {
 	return tv.SetBacking(bNode)
 }
 
-func (tv *ComplexListView) Pop() error {
+func (tv *ComplexListView[EV, ET]) Pop() error {
 	ll, err := tv.Length()
 	if err != nil {
 		return err
@@ -258,7 +267,7 @@ func (tv *ComplexListView) Pop() error {
 	return tv.SetBacking(bNode)
 }
 
-func (tv *ComplexListView) CheckIndex(i uint64) error {
+func (tv *ComplexListView[EV, ET]) CheckIndex(i uint64) error {
 	ll, err := tv.Length()
 	if err != nil {
 		return err
@@ -272,35 +281,36 @@ func (tv *ComplexListView) CheckIndex(i uint64) error {
 	return nil
 }
 
-func (tv *ComplexListView) Get(i uint64) (View, error) {
+func (tv *ComplexListView[EV, ET]) Get(i uint64) (EV, error) {
+	var out EV
 	if err := tv.CheckIndex(i); err != nil {
-		return nil, err
+		return out, err
 	}
 	v, err := tv.SubtreeView.GetNode(i)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	return tv.ComplexListTypeDef.ElemType.ViewFromBacking(v, tv.ItemHook(i))
 }
 
-func (tv *ComplexListView) Set(i uint64, v View) error {
+func (tv *ComplexListView[EV, ET]) Set(i uint64, v View) error {
 	return tv.setNode(i, v.Backing())
 }
 
-func (tv *ComplexListView) setNode(i uint64, b Node) error {
+func (tv *ComplexListView[EV, ET]) setNode(i uint64, b Node) error {
 	if err := tv.CheckIndex(i); err != nil {
 		return err
 	}
 	return tv.SubtreeView.SetNode(i, b)
 }
 
-func (tv *ComplexListView) ItemHook(i uint64) BackingHook {
+func (tv *ComplexListView[EV, ET]) ItemHook(i uint64) BackingHook {
 	return func(b Node) error {
 		return tv.setNode(i, b)
 	}
 }
 
-func (tv *ComplexListView) Length() (uint64, error) {
+func (tv *ComplexListView[EV, ET]) Length() (uint64, error) {
 	v, err := tv.SubtreeView.BackingNode.Getter(RightGindex)
 	if err != nil {
 		return 0, err
@@ -316,45 +326,46 @@ func (tv *ComplexListView) Length() (uint64, error) {
 	return ll, nil
 }
 
-func (tv *ComplexListView) Copy() (View, error) {
+func (tv *ComplexListView[EV, ET]) Copy() *ComplexListView[EV, ET] {
 	tvCopy := *tv
 	tvCopy.Hook = nil
-	return &tvCopy, nil
+	return &tvCopy
 }
 
-func (tv *ComplexListView) Iter() ElemIter {
+func (tv *ComplexListView[EV, ET]) Iter() ElemIter[EV, ET] {
 	length, err := tv.Length()
 	if err != nil {
-		return ErrElemIter{err}
+		return ErrElemIter[EV, ET]{err}
 	}
 	i := uint64(0)
-	return ElemIterFn(func() (elem View, ok bool, err error) {
+	return ElemIterFn[EV, ET](func() (elem EV, elemType ET, ok bool, err error) {
 		if i < length {
 			elem, err = tv.Get(i)
 			ok = true
+			elemType = tv.ElemType
 			i += 1
 			return
 		} else {
-			return nil, false, nil
+			return
 		}
 	})
 }
 
-func (tv *ComplexListView) ReadonlyIter() ElemIter {
+func (tv *ComplexListView[EV, ET]) ReadonlyIter() ElemIter[EV, ET] {
 	length, err := tv.Length()
 	if err != nil {
-		return ErrElemIter{err}
+		return ErrElemIter[EV, ET]{err}
 	}
 	// get contents subtree, to traverse with the stack
 	node, err := tv.BackingNode.Left()
 	if err != nil {
-		return ErrElemIter{err}
+		return ErrElemIter[EV, ET]{err}
 	}
 	// ignore length mixin in stack
-	return elemReadonlyIter(node, length, tv.depth-1, tv.ElemType)
+	return elemReadonlyIter[EV, ET](node, length, tv.depth-1, tv.ElemType)
 }
 
-func (tv *ComplexListView) ValueByteLength() (uint64, error) {
+func (tv *ComplexListView[EV, ET]) ValueByteLength() (uint64, error) {
 	length, err := tv.Length()
 	if err != nil {
 		return 0, err
@@ -365,7 +376,7 @@ func (tv *ComplexListView) ValueByteLength() (uint64, error) {
 		size := length * OffsetByteLength
 		iter := tv.ReadonlyIter()
 		for {
-			elem, ok, err := iter.Next()
+			elem, _, ok, err := iter.Next()
 			if err != nil {
 				return 0, err
 			}
@@ -382,7 +393,7 @@ func (tv *ComplexListView) ValueByteLength() (uint64, error) {
 	}
 }
 
-func (tv *ComplexListView) Serialize(w *codec.EncodingWriter) error {
+func (tv *ComplexListView[EV, ET]) Serialize(w *codec.EncodingWriter) error {
 	if tv.ElemType.IsFixedByteLength() {
 		return serializeComplexFixElemSeries(tv.ReadonlyIter(), w)
 	} else {

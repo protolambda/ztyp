@@ -13,8 +13,14 @@ import (
 // For 32, using Root ([32]byte as underlying type) is better.
 type SmallByteVecMeta uint8
 
-func (td SmallByteVecMeta) Default(_ BackingHook) View {
+var _ TypeDef[SmallByteVecView] = SmallByteVecMeta(0)
+
+func (td SmallByteVecMeta) Default(_ BackingHook) SmallByteVecView {
 	return make(SmallByteVecView, td, td)
+}
+
+func (td SmallByteVecMeta) Mask() TypeDef[View] {
+	return Mask[SmallByteVecView, SmallByteVecMeta]{T: td}
 }
 
 func (td SmallByteVecMeta) DefaultNode() Node {
@@ -25,7 +31,7 @@ func (td SmallByteVecMeta) New() SmallByteVecView {
 	return make(SmallByteVecView, td, td)
 }
 
-func (td SmallByteVecMeta) ViewFromBacking(node Node, _ BackingHook) (View, error) {
+func (td SmallByteVecMeta) ViewFromBacking(node Node, _ BackingHook) (SmallByteVecView, error) {
 	r, ok := node.(*Root)
 	if !ok {
 		return nil, fmt.Errorf("backing must be a root")
@@ -54,7 +60,7 @@ func (td SmallByteVecMeta) MaxByteLength() uint64 {
 	return uint64(td)
 }
 
-func (td SmallByteVecMeta) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (td SmallByteVecMeta) Deserialize(dr *codec.DecodingReader) (SmallByteVecView, error) {
 	v := make(SmallByteVecView, td, td)
 	_, err := dr.Read(v)
 	return v, err
@@ -77,6 +83,10 @@ func AsSmallByteVec(v View, err error) (SmallByteVecView, error) {
 	return data, nil
 }
 
+func (v SmallByteVecView) Type() TypeDef[View] {
+	return SmallByteVecMeta(len(v)).Mask()
+}
+
 func (v SmallByteVecView) SetBacking(b Node) error {
 	return errors.New("cannot set backing of SmallByteVecView")
 }
@@ -87,8 +97,8 @@ func (v SmallByteVecView) Backing() Node {
 	return out
 }
 
-func (v SmallByteVecView) Copy() (View, error) {
-	return v, nil
+func (v SmallByteVecView) Copy() SmallByteVecView {
+	return append(make(SmallByteVecView, 0, len(v)), v...)
 }
 
 func (v SmallByteVecView) ValueByteLength() (uint64, error) {
@@ -103,10 +113,6 @@ func (v SmallByteVecView) HashTreeRoot(h HashFn) Root {
 	newRoot := Root{}
 	copy(newRoot[:], v)
 	return newRoot
-}
-
-func (v SmallByteVecView) Type() TypeDef {
-	return SmallByteVecMeta(len(v))
 }
 
 func (v SmallByteVecView) MarshalText() ([]byte, error) {

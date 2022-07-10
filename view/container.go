@@ -9,7 +9,7 @@ import (
 
 type FieldDef struct {
 	Name string
-	Type TypeDef
+	Type TypeDef[View]
 }
 
 type ContainerTypeDef struct {
@@ -57,6 +57,10 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 	}
 }
 
+func (td *ContainerTypeDef) Mask() TypeDef[View] {
+	return Mask[*ContainerView, *ContainerTypeDef]{T: td}
+}
+
 func (td *ContainerTypeDef) FromFields(v ...View) (*ContainerView, error) {
 	if len(td.Fields) != len(v) {
 		return nil, fmt.Errorf("expected %d fields, got %d", len(td.Fields), len(v))
@@ -74,7 +78,7 @@ func (td *ContainerTypeDef) FromFields(v ...View) (*ContainerView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return conView.(*ContainerView), nil
+	return conView, nil
 }
 
 func (td *ContainerTypeDef) DefaultNode() Node {
@@ -89,15 +93,12 @@ func (td *ContainerTypeDef) DefaultNode() Node {
 	return rootNode
 }
 
-func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (*ContainerView, error) {
 	fieldCount := td.FieldCount()
 	depth := CoverDepth(fieldCount)
 	return &ContainerView{
 		SubtreeView: SubtreeView{
 			BackedView: BackedView{
-				ViewBase: ViewBase{
-					TypeDef: td,
-				},
 				Hook:        hook,
 				BackingNode: node,
 			},
@@ -107,13 +108,13 @@ func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, 
 	}, nil
 }
 
-func (td *ContainerTypeDef) Default(hook BackingHook) View {
+func (td *ContainerTypeDef) Default(hook BackingHook) *ContainerView {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v
 }
 
 func (td *ContainerTypeDef) New() *ContainerView {
-	return td.Default(nil).(*ContainerView)
+	return td.Default(nil)
 }
 
 func (td *ContainerTypeDef) FieldCount() uint64 {
@@ -125,7 +126,7 @@ type offsetField struct {
 	offset uint32
 }
 
-func (td *ContainerTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (td *ContainerTypeDef) Deserialize(dr *codec.DecodingReader) (*ContainerView, error) {
 	fields := make([]View, len(td.Fields), len(td.Fields))
 	offsets := make([]offsetField, 0, td.OffsetsCount)
 	prevOffset := uint32(td.FixedPartSize)
@@ -216,10 +217,14 @@ func AsContainer(v View, err error) (*ContainerView, error) {
 	return c, nil
 }
 
-func (tv *ContainerView) Copy() (View, error) {
+func (tv *ContainerView) Type() TypeDef[View] {
+	return tv.ContainerTypeDef.Mask()
+}
+
+func (tv *ContainerView) Copy() *ContainerView {
 	tvCopy := *tv
 	tvCopy.Hook = nil
-	return &tvCopy, nil
+	return &tvCopy
 }
 
 func (tv *ContainerView) ValueByteLength() (uint64, error) {
@@ -257,14 +262,13 @@ func (tv *ContainerView) Serialize(w *codec.EncodingWriter) error {
 	// span of the previous var-size element
 	prevSize := uint64(0)
 	for {
-		f, ok, err := fieldIter.Next()
+		f, fType, ok, err := fieldIter.Next()
 		if err != nil {
 			return err
 		}
 		if !ok {
 			break
 		}
-		fType := f.Type()
 		if fType.IsFixedByteLength() {
 			if err := f.Serialize(w); err != nil {
 				return err
@@ -293,17 +297,18 @@ func (tv *ContainerView) Serialize(w *codec.EncodingWriter) error {
 	return nil
 }
 
-func (tv *ContainerView) Iter() ElemIter {
+func (tv *ContainerView) Iter() ElemIter[View, TypeDef[View]] {
 	i := uint64(0)
 	fieldCount := tv.FieldCount()
-	return ElemIterFn(func() (elem View, ok bool, err error) {
+	return ElemIterFn[View, TypeDef[View]](func() (elem View, elemType TypeDef[View], ok bool, err error) {
 		if i < fieldCount {
 			elem, err = tv.Get(i)
 			ok = true
+			elemType = tv.Fields[i].Type
 			i += 1
 			return
 		} else {
-			return nil, false, nil
+			return nil, nil, false, nil
 		}
 	})
 }
@@ -313,7 +318,7 @@ func (tv *ContainerView) FieldValues() ([]View, error) {
 	iter := tv.ReadonlyIter()
 	i := 0
 	for {
-		el, ok, err := iter.Next()
+		el, _, ok, err := iter.Next()
 		if err != nil {
 			return nil, err
 		}
@@ -326,7 +331,7 @@ func (tv *ContainerView) FieldValues() ([]View, error) {
 	return values, nil
 }
 
-func (tv *ContainerView) ReadonlyIter() ElemIter {
+func (tv *ContainerView) ReadonlyIter() ElemIter[View, TypeDef[View]] {
 	return fieldReadonlyIter(tv.BackingNode, tv.depth, tv.Fields)
 }
 

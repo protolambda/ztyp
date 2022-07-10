@@ -10,10 +10,12 @@ import (
 type UnionTypeDef struct {
 	ComplexTypeBase
 	// a "None" option is just a nil.
-	Options []TypeDef
+	Options []TypeDef[View]
 }
 
-func UnionType(options []TypeDef) *UnionTypeDef {
+var _ TypeDef[*UnionView] = (*UnionTypeDef)(nil)
+
+func UnionType(options []TypeDef[View]) *UnionTypeDef {
 	if len(options) == 0 {
 		panic("union requires at least 1 option")
 	}
@@ -49,6 +51,10 @@ func UnionType(options []TypeDef) *UnionTypeDef {
 	}
 }
 
+func (td *UnionTypeDef) Mask() TypeDef[View] {
+	return Mask[*UnionView, *UnionTypeDef]{T: td}
+}
+
 func (td *UnionTypeDef) FromView(selector uint8, v View) (*UnionView, error) {
 	var selectorNode Root
 	selectorNode[0] = selector
@@ -63,19 +69,16 @@ func (td *UnionTypeDef) FromView(selector uint8, v View) (*UnionView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return conView.(*UnionView), nil
+	return conView, nil
 }
 
 func (td *UnionTypeDef) DefaultNode() Node {
 	return NewPairNode(td.Options[0].DefaultNode(), new(Root))
 }
 
-func (td *UnionTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, error) {
+func (td *UnionTypeDef) ViewFromBacking(node Node, hook BackingHook) (*UnionView, error) {
 	return &UnionView{
 		BackedView: BackedView{
-			ViewBase: ViewBase{
-				TypeDef: td,
-			},
 			Hook:        hook,
 			BackingNode: node,
 		},
@@ -83,16 +86,16 @@ func (td *UnionTypeDef) ViewFromBacking(node Node, hook BackingHook) (View, erro
 	}, nil
 }
 
-func (td *UnionTypeDef) Default(hook BackingHook) View {
+func (td *UnionTypeDef) Default(hook BackingHook) *UnionView {
 	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
 	return v
 }
 
 func (td *UnionTypeDef) New() *UnionView {
-	return td.Default(nil).(*UnionView)
+	return td.Default(nil)
 }
 
-func (td *UnionTypeDef) Deserialize(dr *codec.DecodingReader) (View, error) {
+func (td *UnionTypeDef) Deserialize(dr *codec.DecodingReader) (*UnionView, error) {
 	scope := dr.Scope()
 	if scope == 0 {
 		return nil, fmt.Errorf("scope must be non-zero to deserialize union")
@@ -135,6 +138,8 @@ type UnionView struct {
 	*UnionTypeDef
 }
 
+var _ View = (*UnionView)(nil)
+
 func AsUnion(v View, err error) (*UnionView, error) {
 	if err != nil {
 		return nil, err
@@ -146,10 +151,14 @@ func AsUnion(v View, err error) (*UnionView, error) {
 	return c, nil
 }
 
-func (tv *UnionView) Copy() (View, error) {
+func (v *UnionView) Type() TypeDef[View] {
+	return v.UnionTypeDef.Mask()
+}
+
+func (tv *UnionView) Copy() *UnionView {
 	tvCopy := *tv
 	tvCopy.Hook = nil
-	return &tvCopy, nil
+	return &tvCopy
 }
 
 func (tv *UnionView) Selector() (uint8, error) {
