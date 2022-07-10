@@ -18,6 +18,10 @@ func (r Root) String() string {
 	return "0x" + hex.EncodeToString(r[:])
 }
 
+func (r Root) TerminalString() string {
+	return fmt.Sprintf("%x..%x", r[:3], r[29:])
+}
+
 func (r *Root) Deserialize(dr *codec.DecodingReader) error {
 	if r == nil {
 		return errors.New("nil root")
