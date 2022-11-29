@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
@@ -15,20 +16,8 @@ type SmallByteVecMeta uint8
 
 var _ TypeDef[SmallByteVecView] = SmallByteVecMeta(0)
 
-func (td SmallByteVecMeta) Default(_ BackingHook) SmallByteVecView {
-	return make(SmallByteVecView, td, td)
-}
-
-func (td SmallByteVecMeta) Mask() TypeDef[View] {
-	return Mask[SmallByteVecView, SmallByteVecMeta]{T: td}
-}
-
 func (td SmallByteVecMeta) DefaultNode() Node {
 	return &ZeroHashes[0]
-}
-
-func (td SmallByteVecMeta) New() SmallByteVecView {
-	return make(SmallByteVecView, td, td)
 }
 
 func (td SmallByteVecMeta) ViewFromBacking(node Node, _ BackingHook) (SmallByteVecView, error) {
@@ -81,10 +70,6 @@ func AsSmallByteVec(v View, err error) (SmallByteVecView, error) {
 		return nil, fmt.Errorf("not a small byte vec view: %v", v)
 	}
 	return data, nil
-}
-
-func (v SmallByteVecView) Type() TypeDef[View] {
-	return SmallByteVecMeta(len(v)).Mask()
 }
 
 func (v SmallByteVecView) SetBacking(b Node) error {

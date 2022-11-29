@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
@@ -37,10 +38,6 @@ func ComplexVectorType[EV View, ET TypeDef[EV]](elemType ET, length uint64) *Com
 			IsFixedSize: isFixedSize,
 		},
 	}
-}
-
-func (td *ComplexVectorTypeDef[EV, ET]) Mask() TypeDef[View] {
-	return Mask[*ComplexVectorView[EV, ET], *ComplexVectorTypeDef[EV, ET]]{T: td}
 }
 
 func (td *ComplexVectorTypeDef[EV, ET]) FromElements(v ...View) (*ComplexVectorView[EV, ET], error) {
@@ -86,15 +83,6 @@ func (td *ComplexVectorTypeDef[EV, ET]) ViewFromBacking(node Node, hook BackingH
 		},
 		ComplexVectorTypeDef: td,
 	}, nil
-}
-
-func (td *ComplexVectorTypeDef[EV, ET]) Default(hook BackingHook) *ComplexVectorView[EV, ET] {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *ComplexVectorTypeDef[EV, ET]) New() *ComplexVectorView[EV, ET] {
-	return td.Default(nil)
 }
 
 func (td *ComplexVectorTypeDef[EV, ET]) Deserialize(dr *codec.DecodingReader) (*ComplexVectorView[EV, ET], error) {
@@ -180,10 +168,6 @@ func AsComplexVector[EV View, ET TypeDef[EV]](v View, err error) (*ComplexVector
 	return c, nil
 }
 
-func (tv *ComplexVectorView[EV, ET]) Type() TypeDef[View] {
-	return tv.ComplexVectorTypeDef.Mask()
-}
-
 func (tv *ComplexVectorView[EV, ET]) Get(i uint64) (EV, error) {
 	var out EV
 	if i >= tv.ComplexVectorTypeDef.VectorLength {
@@ -193,7 +177,7 @@ func (tv *ComplexVectorView[EV, ET]) Get(i uint64) (EV, error) {
 	if err != nil {
 		return out, err
 	}
-	return tv.ComplexVectorTypeDef.ElemType.ViewFromBacking(v, tv.ItemHook(i))
+	return tv.ComplexVectorTypeDef.ElemType.ViewFromBacking(v, tv.ItemHook(i)), nil
 }
 
 func (tv *ComplexVectorView[EV, ET]) Set(i uint64, v EV) error {

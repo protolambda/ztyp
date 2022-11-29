@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
@@ -24,23 +25,15 @@ func BitVectorType(length uint64) *BitVectorTypeDef {
 	}
 }
 
-func (td *BitVectorTypeDef) Mask() TypeDef[View] {
-	return Mask[*BitVectorView, *BitVectorTypeDef]{td}
-}
-
-func (td *BitVectorTypeDef) FromBits(bits []bool) (*BitVectorView, error) {
-	if uint64(len(bits)) != td.BitLength {
-		return nil, fmt.Errorf("got %d bits, expected %d bits", len(bits), td.BitLength)
-	}
-	contents := bitsToBytes(bits)
-	bottomNodes, err := BytesIntoNodes(contents)
-	if err != nil {
-		return nil, err
-	}
+func (td *BitVectorTypeDef) New() MutView {
 	depth := CoverDepth(td.BottomNodeLength())
-	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
-	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view, nil
+	return &BitVectorView{
+		SubtreeView: SubtreeView{
+			BackedView: BackedView{},
+			depth:      depth,
+		},
+		BitVectorTypeDef: td,
+	}
 }
 
 func (td *BitVectorTypeDef) Length() uint64 {
@@ -52,56 +45,8 @@ func (td *BitVectorTypeDef) DefaultNode() Node {
 	return SubtreeFillToDepth(&ZeroHashes[0], depth)
 }
 
-func (td *BitVectorTypeDef) ViewFromBacking(node Node, hook BackingHook) (*BitVectorView, error) {
-	depth := CoverDepth(td.BottomNodeLength())
-	return &BitVectorView{
-		SubtreeView: SubtreeView{
-			BackedView: BackedView{
-				Hook:        hook,
-				BackingNode: node,
-			},
-			depth: depth,
-		},
-		BitVectorTypeDef: td,
-	}, nil
-}
-
 func (td *BitVectorTypeDef) BottomNodeLength() uint64 {
 	return (td.BitLength + 0xff) >> 8
-}
-
-func (td *BitVectorTypeDef) Default(hook BackingHook) *BitVectorView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *BitVectorTypeDef) New() *BitVectorView {
-	return td.Default(nil)
-}
-
-func (td *BitVectorTypeDef) Deserialize(dr *codec.DecodingReader) (*BitVectorView, error) {
-	scope := dr.Scope()
-	if td.Size != scope {
-		return nil, fmt.Errorf("expected size %d does not match scope %d", td.Size, scope)
-	}
-	contents := make([]byte, scope, scope)
-	if _, err := dr.Read(contents); err != nil {
-		return nil, err
-	}
-	if scope != 0 && td.BitLength&7 != 0 {
-		last := contents[scope-1]
-		if last&byte((uint16(1)<<(td.BitLength&7))-1) != last {
-			return nil, fmt.Errorf("last bitvector byte %d has out of bounds bits set", last)
-		}
-	}
-	bottomNodes, err := BytesIntoNodes(contents)
-	if err != nil {
-		return nil, err
-	}
-	depth := CoverDepth(td.BottomNodeLength())
-	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
-	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view, nil
 }
 
 func (td *BitVectorTypeDef) String() string {
@@ -113,19 +58,42 @@ type BitVectorView struct {
 	*BitVectorTypeDef
 }
 
-func AsBitVector(v View, err error) (*BitVectorView, error) {
+func (td *BitVectorView) SetBits(bits []bool) error {
+	if uint64(len(bits)) != td.BitLength {
+		return fmt.Errorf("got %d bits, expected %d bits", len(bits), td.BitLength)
+	}
+	contents := bitsToBytes(bits)
+	bottomNodes, err := BytesIntoNodes(contents)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	bv, ok := v.(*BitVectorView)
-	if !ok {
-		return nil, fmt.Errorf("view is not a bitvector: %v", v)
-	}
-	return bv, nil
+	depth := CoverDepth(td.BottomNodeLength())
+	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	return td.SetBacking(rootNode)
 }
 
-func (tv *BitVectorView) Type() TypeDef[View] {
-	return tv.BitVectorTypeDef.Mask()
+func (td *BitVectorView) Deserialize(dr *codec.DecodingReader) error {
+	scope := dr.Scope()
+	if td.Size != scope {
+		return fmt.Errorf("expected size %d does not match scope %d", td.Size, scope)
+	}
+	contents := make([]byte, scope, scope)
+	if _, err := dr.Read(contents); err != nil {
+		return err
+	}
+	if scope != 0 && td.BitLength&7 != 0 {
+		last := contents[scope-1]
+		if last&byte((uint16(1)<<(td.BitLength&7))-1) != last {
+			return fmt.Errorf("last bitvector byte %d has out of bounds bits set", last)
+		}
+	}
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return err
+	}
+	depth := CoverDepth(td.BottomNodeLength())
+	rootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	return td.SetBacking(rootNode)
 }
 
 func (tv *BitVectorView) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {

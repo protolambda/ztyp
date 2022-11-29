@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
@@ -26,10 +27,6 @@ func BasicVectorType[EV BasicView, ET BasicTypeDef[EV]](elemType ET, length uint
 			IsFixedSize: true,
 		},
 	}
-}
-
-func (td *BasicVectorTypeDef[EV, ET]) Mask() TypeDef[View] {
-	return Mask[*BasicVectorView[EV, ET], *BasicVectorTypeDef[EV, ET]]{T: td}
 }
 
 func (td *BasicVectorTypeDef[EV, ET]) FromElements(v ...EV) (*BasicVectorView[EV, ET], error) {
@@ -88,15 +85,6 @@ func (td *BasicVectorTypeDef[EV, ET]) TranslateIndex(index uint64) (nodeIndex ui
 	return index / perNode, uint8(index & (perNode - 1))
 }
 
-func (td *BasicVectorTypeDef[EV, ET]) Default(hook BackingHook) *BasicVectorView[EV, ET] {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *BasicVectorTypeDef[EV, ET]) New() *BasicVectorView[EV, ET] {
-	return td.Default(nil)
-}
-
 func (td *BasicVectorTypeDef[EV, ET]) Deserialize(dr *codec.DecodingReader) (*BasicVectorView[EV, ET], error) {
 	scope := dr.Scope()
 	if td.Size != scope {
@@ -136,10 +124,6 @@ func AsBasicVector[EV BasicView, ET BasicTypeDef[EV]](v View, err error) (*Basic
 		return nil, fmt.Errorf("view is not a basic vector: %v", v)
 	}
 	return bv, nil
-}
-
-func (tv *BasicVectorView[EV, ET]) Type() TypeDef[View] {
-	return tv.BasicVectorTypeDef.Mask()
 }
 
 func (tv *BasicVectorView[EV, ET]) subviewNode(i uint64) (r *Root, bottomIndex uint64, subIndex uint8, err error) {

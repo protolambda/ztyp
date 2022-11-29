@@ -3,19 +3,20 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
 
-type ComplexListTypeDef[EV View, ET TypeDef[EV]] struct {
+type ComplexListTypeDef[EV View, ET TypeDef] struct {
 	ElemType  ET
 	ListLimit uint64
 	ComplexTypeBase
 }
 
-var _ TypeDef[*ComplexListView[View, TypeDef[View]]] = (*ComplexListTypeDef[View, TypeDef[View]])(nil)
+var _ TypeDef[*ComplexListView[View, TypeDef]] = (*ComplexListTypeDef[View, TypeDef])(nil)
 
-func ComplexListType[EV View, ET TypeDef[EV]](elemType ET, limit uint64) *ComplexListTypeDef[EV, ET] {
+func ComplexListType[EV View, ET TypeDef](elemType ET, limit uint64) *ComplexListTypeDef[EV, ET] {
 	maxSize := uint64(0)
 	if elemType.IsFixedByteLength() {
 		maxSize = limit * elemType.TypeByteLength()
@@ -32,25 +33,6 @@ func ComplexListType[EV View, ET TypeDef[EV]](elemType ET, limit uint64) *Comple
 			IsFixedSize: false,
 		},
 	}
-}
-
-func (td *ComplexListTypeDef[EV, ET]) Mask() TypeDef[View] {
-	return Mask[*ComplexListView[EV, ET], *ComplexListTypeDef[EV, ET]]{T: td}
-}
-
-func (td *ComplexListTypeDef[EV, ET]) FromElements(v ...View) (*ComplexListView[EV, ET], error) {
-	if uint64(len(v)) > td.ListLimit {
-		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
-	}
-	nodes := make([]Node, len(v), len(v))
-	for i, el := range v {
-		nodes[i] = el.Backing()
-	}
-	depth := CoverDepth(td.ListLimit)
-	contentsRootNode, _ := SubtreeFillToContents(nodes, depth)
-	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
-	vecView, _ := td.ViewFromBacking(rootNode, nil)
-	return vecView, nil
 }
 
 func (td *ComplexListTypeDef[EV, ET]) ElementType() ET {
@@ -81,107 +63,18 @@ func (td *ComplexListTypeDef[EV, ET]) ViewFromBacking(node Node, hook BackingHoo
 	}, nil
 }
 
-func (td *ComplexListTypeDef[EV, ET]) Default(hook BackingHook) *ComplexListView[EV, ET] {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *ComplexListTypeDef[EV, ET]) New() *ComplexListView[EV, ET] {
-	return td.Default(nil)
-}
-
-func (td *ComplexListTypeDef[EV, ET]) Deserialize(dr *codec.DecodingReader) (*ComplexListView[EV, ET], error) {
-	scope := dr.Scope()
-	if scope == 0 {
-		return td.New(), nil
-	}
-	if td.ElemType.IsFixedByteLength() {
-		elemSize := td.ElemType.TypeByteLength()
-		length := scope / elemSize
-		if length > td.ListLimit {
-			return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
-		}
-		if expected := length * elemSize; expected != scope {
-			return nil, fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
-		}
-		elements := make([]View, length, length)
-		for i := uint64(0); i < length; i++ {
-			sub, err := dr.SubScope(elemSize)
-			if err != nil {
-				return nil, err
-			}
-			el, err := td.ElemType.Deserialize(sub)
-			if err != nil {
-				return nil, err
-			}
-			elements[i] = el
-		}
-		return td.FromElements(elements...)
-	} else {
-		firstOffset, err := dr.ReadOffset()
-		if err != nil {
-			return nil, err
-		}
-		if firstOffset%OffsetByteLength != 0 {
-			return nil, fmt.Errorf("first offset %d does not align to offset length %d", firstOffset, OffsetByteLength)
-		}
-		length := uint64(firstOffset) / OffsetByteLength
-		if length > td.ListLimit {
-			return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
-		}
-		offsets := make([]uint32, length, length)
-		offsets[0] = firstOffset
-		prevOffset := firstOffset
-		for i := uint64(1); i < length; i++ {
-			offset, err := dr.ReadOffset()
-			if err != nil {
-				return nil, err
-			}
-			if offset < prevOffset {
-				return nil, fmt.Errorf("offset %d for element %d is smaller than previous offset %d", offset, i, prevOffset)
-			}
-			offsets[i] = offset
-			prevOffset = offset
-		}
-		elements := make([]View, length, length)
-		lastIndex := uint32(len(elements) - 1)
-		for i := uint32(0); i < lastIndex; i++ {
-			size := offsets[i+1] - offsets[i]
-			sub, err := dr.SubScope(uint64(size))
-			if err != nil {
-				return nil, err
-			}
-			el, err := td.ElemType.Deserialize(sub)
-			if err != nil {
-				return nil, err
-			}
-			elements[i] = el
-		}
-		sub, err := dr.SubScope(scope - uint64(offsets[lastIndex]))
-		if err != nil {
-			return nil, err
-		}
-		el, err := td.ElemType.Deserialize(sub)
-		if err != nil {
-			return nil, err
-		}
-		elements[lastIndex] = el
-		return td.FromElements(elements...)
-	}
-}
-
 func (td *ComplexListTypeDef[EV, ET]) String() string {
 	return fmt.Sprintf("List[%s, %d]", td.ElemType.String(), td.ListLimit)
 }
 
-type ComplexListView[EV View, ET TypeDef[EV]] struct {
+type ComplexListView[EV View, ET TypeDef] struct {
 	SubtreeView
 	*ComplexListTypeDef[EV, ET]
 }
 
-var _ View = (*ComplexListView[View, TypeDef[View]])(nil)
+var _ View = (*ComplexListView[View, TypeDef])(nil)
 
-func AsComplexList[EV View, ET TypeDef[EV]](v View, err error) (*ComplexListView[EV, ET], error) {
+func AsComplexList[EV View, ET TypeDef](v View, err error) (*ComplexListView[EV, ET], error) {
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +85,98 @@ func AsComplexList[EV View, ET TypeDef[EV]](v View, err error) (*ComplexListView
 	return c, nil
 }
 
-func (tv *ComplexListView[EV, ET]) Type() TypeDef[View] {
-	return tv.ComplexListTypeDef.Mask()
+func (td *ComplexListView[EV, ET]) Deserialize(dr *codec.DecodingReader) error {
+	scope := dr.Scope()
+	if scope == 0 {
+		return td.SetBacking(td.DefaultNode())
+	}
+	if td.ElemType.IsFixedByteLength() {
+		elemSize := td.ElemType.TypeByteLength()
+		length := scope / elemSize
+		if length > td.ListLimit {
+			return fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
+		}
+		if expected := length * elemSize; expected != scope {
+			return fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
+		}
+		elements := make([]EV, length, length)
+		for i := uint64(0); i < length; i++ {
+			sub, err := dr.SubScope(elemSize)
+			if err != nil {
+				return err
+			}
+			el := td.ElemType.New()
+			if err := el.Deserialize(sub); err != nil {
+				return err
+			}
+			elements[i] = el
+		}
+		return td.SetElements(elements...)
+	} else {
+		firstOffset, err := dr.ReadOffset()
+		if err != nil {
+			return err
+		}
+		if firstOffset%OffsetByteLength != 0 {
+			return fmt.Errorf("first offset %d does not align to offset length %d", firstOffset, OffsetByteLength)
+		}
+		length := uint64(firstOffset) / OffsetByteLength
+		if length > td.ListLimit {
+			return fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
+		}
+		offsets := make([]uint32, length, length)
+		offsets[0] = firstOffset
+		prevOffset := firstOffset
+		for i := uint64(1); i < length; i++ {
+			offset, err := dr.ReadOffset()
+			if err != nil {
+				return err
+			}
+			if offset < prevOffset {
+				return fmt.Errorf("offset %d for element %d is smaller than previous offset %d", offset, i, prevOffset)
+			}
+			offsets[i] = offset
+			prevOffset = offset
+		}
+		elements := make([]View, length, length)
+		lastIndex := uint32(len(elements) - 1)
+		for i := uint32(0); i < lastIndex; i++ {
+			size := offsets[i+1] - offsets[i]
+			sub, err := dr.SubScope(uint64(size))
+			if err != nil {
+				return err
+			}
+			el, err := td.ElemType.Deserialize(sub)
+			if err != nil {
+				return err
+			}
+			elements[i] = el
+		}
+		sub, err := dr.SubScope(scope - uint64(offsets[lastIndex]))
+		if err != nil {
+			return err
+		}
+		el, err := td.ElemType.Deserialize(sub)
+		if err != nil {
+			return err
+		}
+		elements[lastIndex] = el
+		return td.FromElements(elements...)
+	}
+}
+
+func (tv *ComplexListView[EV, ET]) SetElements(v ...EV) error {
+	if uint64(len(v)) > tv.ListLimit {
+		return fmt.Errorf("expected no more than %d elements, got %d", tv.ListLimit, len(v))
+	}
+	nodes := make([]Node, len(v), len(v))
+	for i, el := range v {
+		nodes[i] = el.Backing()
+	}
+	depth := CoverDepth(tv.ListLimit)
+	contentsRootNode, _ := SubtreeFillToContents(nodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
+	return tv.SetBacking(rootNode)
 }
 
 func (tv *ComplexListView[EV, ET]) Append(v View) error {

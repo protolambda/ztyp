@@ -3,13 +3,14 @@ package view
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
 
 type FieldDef struct {
 	Name string
-	Type TypeDef[View]
+	Type TypeDef
 }
 
 type ContainerTypeDef struct {
@@ -57,30 +58,6 @@ func ContainerType(name string, fields []FieldDef) *ContainerTypeDef {
 	}
 }
 
-func (td *ContainerTypeDef) Mask() TypeDef[View] {
-	return Mask[*ContainerView, *ContainerTypeDef]{T: td}
-}
-
-func (td *ContainerTypeDef) FromFields(v ...View) (*ContainerView, error) {
-	if len(td.Fields) != len(v) {
-		return nil, fmt.Errorf("expected %d fields, got %d", len(td.Fields), len(v))
-	}
-	nodes := make([]Node, len(td.Fields), len(td.Fields))
-	for i, el := range v {
-		nodes[i] = el.Backing()
-	}
-	depth := CoverDepth(td.FieldCount())
-	rootNode, err := SubtreeFillToContents(nodes, depth)
-	if err != nil {
-		return nil, err
-	}
-	conView, err := td.ViewFromBacking(rootNode, nil)
-	if err != nil {
-		return nil, err
-	}
-	return conView, nil
-}
-
 func (td *ContainerTypeDef) DefaultNode() Node {
 	fieldCount := td.FieldCount()
 	depth := CoverDepth(fieldCount)
@@ -93,30 +70,6 @@ func (td *ContainerTypeDef) DefaultNode() Node {
 	return rootNode
 }
 
-func (td *ContainerTypeDef) ViewFromBacking(node Node, hook BackingHook) (*ContainerView, error) {
-	fieldCount := td.FieldCount()
-	depth := CoverDepth(fieldCount)
-	return &ContainerView{
-		SubtreeView: SubtreeView{
-			BackedView: BackedView{
-				Hook:        hook,
-				BackingNode: node,
-			},
-			depth: depth,
-		},
-		ContainerTypeDef: td,
-	}, nil
-}
-
-func (td *ContainerTypeDef) Default(hook BackingHook) *ContainerView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *ContainerTypeDef) New() *ContainerView {
-	return td.Default(nil)
-}
-
 func (td *ContainerTypeDef) FieldCount() uint64 {
 	return uint64(len(td.Fields))
 }
@@ -124,63 +77,6 @@ func (td *ContainerTypeDef) FieldCount() uint64 {
 type offsetField struct {
 	index  int
 	offset uint32
-}
-
-func (td *ContainerTypeDef) Deserialize(dr *codec.DecodingReader) (*ContainerView, error) {
-	fields := make([]View, len(td.Fields), len(td.Fields))
-	offsets := make([]offsetField, 0, td.OffsetsCount)
-	prevOffset := uint32(td.FixedPartSize)
-	scope := dr.Scope()
-	if err := td.checkScope(scope); err != nil {
-		return nil, err
-	}
-	// Deserialize the fixed part: fixed-size fields and offsets to dynamic fields
-	for i, f := range td.Fields {
-		if f.Type.IsFixedByteLength() {
-			sub, err := dr.SubScope(f.Type.TypeByteLength())
-			if err != nil {
-				return nil, err
-			}
-			v, err := f.Type.Deserialize(sub)
-			if err != nil {
-				return nil, err
-			}
-			fields[i] = v
-		} else {
-			offset, err := dr.ReadOffset()
-			if err != nil {
-				return nil, err
-			}
-			if offset < prevOffset {
-				return nil, fmt.Errorf("offset %d of field %d is smaller than prev offset %d", offset, i, prevOffset)
-			}
-			if uint64(offset) > scope {
-				return nil, fmt.Errorf("offset %d of field %d is too big for scope %d", offset, i, scope)
-			}
-			prevOffset = offset
-			offsets = append(offsets, offsetField{index: i, offset: offset})
-		}
-	}
-	// Deserialize the dynamic part: for each offset, get the size and deserialize the element
-	for i, item := range offsets {
-		var size uint32
-		if i+1 == len(offsets) {
-			size = uint32(scope) - item.offset
-		} else {
-			size = offsets[i+1].offset - item.offset
-		}
-		sub, err := dr.SubScope(uint64(size))
-		if err != nil {
-			return nil, err
-		}
-		v, err := td.Fields[item.index].Type.Deserialize(sub)
-		if err != nil {
-			return nil, err
-		}
-		fields[item.index] = v
-	}
-	// Collected all elements, now construct the tree in one go
-	return td.FromFields(fields...)
 }
 
 func (td *ContainerTypeDef) String() string {
@@ -201,6 +97,21 @@ func (td *ContainerTypeDef) TypeRepr() string {
 	return buf.String()
 }
 
+func (td *ContainerTypeDef) New() *ContainerView {
+	fieldCount := td.FieldCount()
+	depth := CoverDepth(fieldCount)
+	return &ContainerView{
+		SubtreeView: SubtreeView{
+			BackedView: BackedView{
+				Hook:        nil,
+				BackingNode: nil,
+			},
+			depth: depth,
+		},
+		ContainerTypeDef: td,
+	}
+}
+
 type ContainerView struct {
 	SubtreeView
 	*ContainerTypeDef
@@ -215,10 +126,6 @@ func AsContainer(v View, err error) (*ContainerView, error) {
 		return nil, fmt.Errorf("view is not a container: %v", v)
 	}
 	return c, nil
-}
-
-func (tv *ContainerView) Type() TypeDef[View] {
-	return tv.ContainerTypeDef.Mask()
 }
 
 func (tv *ContainerView) Copy() *ContainerView {
@@ -236,8 +143,8 @@ func (tv *ContainerView) ValueByteLength() (uint64, error) {
 		if f.Type.IsFixedByteLength() {
 			out += f.Type.TypeByteLength()
 		} else {
-			v, err := tv.Get(uint64(i))
-			if err != nil {
+			v := f.Type.New()
+			if err := tv.Get(uint64(i), v); err != nil {
 				return 0, err
 			}
 			vSize, err := v.ValueByteLength()
@@ -261,8 +168,9 @@ func (tv *ContainerView) Serialize(w *codec.EncodingWriter) error {
 
 	// span of the previous var-size element
 	prevSize := uint64(0)
-	for {
-		f, fType, ok, err := fieldIter.Next()
+	for _, ft := range tv.Fields {
+		f := ft.Type.New()
+		fType, ok, err := fieldIter.Next(f)
 		if err != nil {
 			return err
 		}
@@ -297,53 +205,142 @@ func (tv *ContainerView) Serialize(w *codec.EncodingWriter) error {
 	return nil
 }
 
-func (tv *ContainerView) Iter() ElemIter[View, TypeDef[View]] {
+func (tv *ContainerView) Deserialize(dr *codec.DecodingReader) error {
+	td := tv.ContainerTypeDef
+	fields := make([]View, len(td.Fields), len(td.Fields))
+	offsets := make([]offsetField, 0, td.OffsetsCount)
+	prevOffset := uint32(td.FixedPartSize)
+	scope := dr.Scope()
+	if err := td.checkScope(scope); err != nil {
+		return err
+	}
+	// Deserialize the fixed part: fixed-size fields and offsets to dynamic fields
+	for i, f := range td.Fields {
+		if f.Type.IsFixedByteLength() {
+			sub, err := dr.SubScope(f.Type.TypeByteLength())
+			if err != nil {
+				return err
+			}
+			v := f.Type.New()
+			if err := v.Deserialize(sub); err != nil {
+				return err
+			}
+			fields[i] = v
+		} else {
+			offset, err := dr.ReadOffset()
+			if err != nil {
+				return err
+			}
+			if offset < prevOffset {
+				return fmt.Errorf("offset %d of field %d is smaller than prev offset %d", offset, i, prevOffset)
+			}
+			if uint64(offset) > scope {
+				return fmt.Errorf("offset %d of field %d is too big for scope %d", offset, i, scope)
+			}
+			prevOffset = offset
+			offsets = append(offsets, offsetField{index: i, offset: offset})
+		}
+	}
+	// Deserialize the dynamic part: for each offset, get the size and deserialize the element
+	for i, item := range offsets {
+		var size uint32
+		if i+1 == len(offsets) {
+			size = uint32(scope) - item.offset
+		} else {
+			size = offsets[i+1].offset - item.offset
+		}
+		sub, err := dr.SubScope(uint64(size))
+		if err != nil {
+			return err
+		}
+		v := td.Fields[item.index].Type.New()
+		if err := v.Deserialize(sub); err != nil {
+			return err
+		}
+		fields[item.index] = v
+	}
+	// Collected all elements, now construct the tree in one go
+	return tv.SetFields(fields...)
+}
+
+func (tv *ContainerView) SetFields(v ...View) error {
+	td := tv.ContainerTypeDef
+	if len(td.Fields) != len(v) {
+		return fmt.Errorf("expected %d fields, got %d", len(td.Fields), len(v))
+	}
+	nodes := make([]Node, len(td.Fields), len(td.Fields))
+	for i, el := range v {
+		nodes[i] = el.Backing()
+	}
+	depth := CoverDepth(td.FieldCount())
+	rootNode, err := SubtreeFillToContents(nodes, depth)
+	if err != nil {
+		return err
+	}
+	return tv.SetBacking(rootNode)
+}
+
+func (tv *ContainerView) Iter() ElemIter[View, TypeDef] {
 	i := uint64(0)
 	fieldCount := tv.FieldCount()
-	return ElemIterFn[View, TypeDef[View]](func() (elem View, elemType TypeDef[View], ok bool, err error) {
+	return ElemIterFn[View, TypeDef](func(elem View) (elemType TypeDef, ok bool, err error) {
 		if i < fieldCount {
-			elem, err = tv.Get(i)
+			err = tv.Get(i, elem)
 			ok = true
 			elemType = tv.Fields[i].Type
 			i += 1
 			return
 		} else {
-			return nil, nil, false, nil
+			return nil, false, nil
 		}
 	})
 }
 
-func (tv *ContainerView) FieldValues() ([]View, error) {
-	values := make([]View, len(tv.Fields), len(tv.Fields))
+func (tv *ContainerView) FieldValues(dest ...View) error {
 	iter := tv.ReadonlyIter()
-	i := 0
-	for {
-		el, _, ok, err := iter.Next()
+	for _, d := range dest {
+		_, ok, err := iter.Next(d)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !ok {
 			break
 		}
-		values[i] = el
-		i++
 	}
-	return values, nil
+	return nil
 }
 
-func (tv *ContainerView) ReadonlyIter() ElemIter[View, TypeDef[View]] {
+func (tv *ContainerView) ReadonlyIter() ElemIter[View, TypeDef] {
 	return fieldReadonlyIter(tv.BackingNode, tv.depth, tv.Fields)
 }
 
-func (tv *ContainerView) Get(i uint64) (View, error) {
+func (tv *ContainerView) Get(i uint64, dest View) error {
 	if count := tv.ContainerTypeDef.FieldCount(); i >= count {
-		return nil, fmt.Errorf("cannot get item at field index %d, container only has %d fields", i, count)
+		return fmt.Errorf("cannot get item at field index %d, container only has %d fields", i, count)
 	}
-	v, err := tv.SubtreeView.GetNode(i)
+	b, err := tv.SubtreeView.GetNode(i)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return tv.ContainerTypeDef.Fields[i].Type.ViewFromBacking(v, tv.ItemHook(i))
+	if err := dest.SetBacking(b); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (tv *ContainerView) GetMutable(i uint64, dest HookedView) error {
+	if count := tv.ContainerTypeDef.FieldCount(); i >= count {
+		return fmt.Errorf("cannot get item at field index %d, container only has %d fields", i, count)
+	}
+	b, err := tv.SubtreeView.GetNode(i)
+	if err != nil {
+		return err
+	}
+	dest.SetHook(tv.ItemHook(i))
+	if err := dest.SetBacking(b); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (tv *ContainerView) Set(i uint64, v View) error {

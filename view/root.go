@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
@@ -10,14 +11,6 @@ import (
 type RootMeta uint8
 
 var _ TypeDef[*RootView] = RootMeta(0)
-
-func (m RootMeta) Mask() TypeDef[View] {
-	return Mask[*RootView, RootMeta]{T: m}
-}
-
-func (m RootMeta) Default(hook BackingHook) *RootView {
-	return &RootView{}
-}
 
 func (m RootMeta) IsFixedByteLength() bool {
 	return true
@@ -75,10 +68,6 @@ func AsRoot(v View, err error) (Root, error) {
 		return Root{}, fmt.Errorf("not a root view: %v", v)
 	}
 	return Root(*r), nil
-}
-
-func (r *RootView) Type() TypeDef[View] {
-	return RootType.Mask()
 }
 
 // Backing, a root can be used as a view representing itself.

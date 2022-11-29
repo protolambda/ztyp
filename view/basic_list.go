@@ -3,19 +3,20 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
 
-type BasicListTypeDef[EV BasicView, ET BasicTypeDef[EV]] struct {
+type BasicListTypeDef[EV BasicView, ET PackingType[EV]] struct {
 	ElemType  ET
 	ListLimit uint64
 	ComplexTypeBase
 }
 
-var _ TypeDef[*BasicListView[BasicView, BasicTypeDef[BasicView]]] = (*BasicListTypeDef[BasicView, BasicTypeDef[BasicView]])(nil)
+var _ TypeDef = (*BasicListTypeDef[Uint8View, Uint8Type])(nil)
 
-func BasicListType[EV BasicView, ET BasicTypeDef[EV]](elemType ET, limit uint64) *BasicListTypeDef[EV, ET] {
+func BasicListType[EV BasicView, ET PackingType[EV]](elemType ET, limit uint64) *BasicListTypeDef[EV, ET] {
 	return &BasicListTypeDef[EV, ET]{
 		ElemType:  elemType,
 		ListLimit: limit,
@@ -28,24 +29,15 @@ func BasicListType[EV BasicView, ET BasicTypeDef[EV]](elemType ET, limit uint64)
 	}
 }
 
-func (td *BasicListTypeDef[EV, ET]) Mask() TypeDef[View] {
-	return Mask[*BasicListView[EV, ET], *BasicListTypeDef[EV, ET]]{T: td}
-}
-
-func (td *BasicListTypeDef[EV, ET]) FromElements(v ...EV) (*BasicListView[EV, ET], error) {
-	length := uint64(len(v))
-	if length > td.ListLimit {
-		return nil, fmt.Errorf("expected no more than %d elements, got %d", td.ListLimit, len(v))
-	}
-	bottomNodes, err := td.ElemType.PackViews(v)
-	if err != nil {
-		return nil, err
-	}
+func (td *BasicListTypeDef[EV, ET]) New() View {
 	depth := CoverDepth(td.BottomNodeLimit())
-	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
-	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
-	listView, _ := td.ViewFromBacking(rootNode, nil)
-	return listView, nil
+	return &BasicListView[EV, ET[EV]]{
+		SubtreeView: SubtreeView{
+			BackedView: BackedView{},
+			depth:      depth + 1, // +1 for length mix-in
+		},
+		BasicListTypeDef: td,
+	}
 }
 
 func (td *BasicListTypeDef[EV, ET]) ElementType() ET {
@@ -59,20 +51,6 @@ func (td *BasicListTypeDef[EV, ET]) Limit() uint64 {
 func (td *BasicListTypeDef[EV, ET]) DefaultNode() Node {
 	depth := CoverDepth(td.BottomNodeLimit())
 	return &PairNode{LeftChild: &ZeroHashes[depth], RightChild: &ZeroHashes[0]}
-}
-
-func (td *BasicListTypeDef[EV, ET]) ViewFromBacking(node Node, hook BackingHook) (*BasicListView[EV, ET], error) {
-	depth := CoverDepth(td.BottomNodeLimit())
-	return &BasicListView[EV, ET]{
-		SubtreeView: SubtreeView{
-			BackedView: BackedView{
-				Hook:        hook,
-				BackingNode: node,
-			},
-			depth: depth + 1, // +1 for length mix-in
-		},
-		BasicListTypeDef: td,
-	}, nil
 }
 
 func (td *BasicListTypeDef[EV, ET]) ElementsPerBottomNode() uint64 {
@@ -89,55 +67,18 @@ func (td *BasicListTypeDef[EV, ET]) TranslateIndex(index uint64) (nodeIndex uint
 	return index / perNode, uint8(index & (perNode - 1))
 }
 
-func (td *BasicListTypeDef[EV, ET]) Default(hook BackingHook) *BasicListView[EV, ET] {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *BasicListTypeDef[EV, ET]) New() *BasicListView[EV, ET] {
-	return td.Default(nil)
-}
-
-func (td *BasicListTypeDef[EV, ET]) Deserialize(dr *codec.DecodingReader) (*BasicListView[EV, ET], error) {
-	elemSize := td.ElemType.TypeByteLength()
-	scope := dr.Scope()
-	length := scope / elemSize
-	if length > td.ListLimit {
-		return nil, fmt.Errorf("too many items, limit %d but got %d", td.ListLimit, length)
-	}
-	if expected := length * elemSize; expected != scope {
-		return nil, fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
-	}
-	if length == 0 {
-		return td.New(), nil
-	}
-	contents := make([]byte, scope, scope)
-	if _, err := dr.Read(contents); err != nil {
-		return nil, err
-	}
-	bottomNodes, err := BytesIntoNodes(contents)
-	if err != nil {
-		return nil, err
-	}
-	depth := CoverDepth(td.BottomNodeLimit())
-	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
-	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(length).Backing()}
-	listView, _ := td.ViewFromBacking(rootNode, nil)
-	return listView, nil
-}
-
 func (td *BasicListTypeDef[EV, ET]) String() string {
 	return fmt.Sprintf("List[%s, %d]", td.ElemType.String(), td.ListLimit)
 }
 
-type BasicListView[EV BasicView, ET BasicTypeDef[EV]] struct {
+type BasicListView[EV BasicView, ET PackingType[EV]] struct {
 	SubtreeView
 	*BasicListTypeDef[EV, ET]
 }
 
-var _ View = (*BasicListView[BasicView, BasicTypeDef[BasicView]])(nil)
+var _ View = (*BasicListView[Uint8View, Uint8Type])(nil)
 
-func AsBasicList[EV BasicView, ET BasicTypeDef[EV]](v View, err error) (*BasicListView[EV, ET], error) {
+func AsBasicList[EV BasicView, ET PackingType[EV]](v View, err error) (*BasicListView[EV, ET], error) {
 	if err != nil {
 		return nil, err
 	}
@@ -148,12 +89,50 @@ func AsBasicList[EV BasicView, ET BasicTypeDef[EV]](v View, err error) (*BasicLi
 	return bv, nil
 }
 
-func (tv *BasicListView[EV, ET]) Type() TypeDef[View] {
-	return tv.BasicListTypeDef.Mask()
-}
-
 func (tv *BasicListView[EV, ET]) ViewRoot(h HashFn) Root {
 	return tv.BackingNode.MerkleRoot(h)
+}
+
+func (tv *BasicListView[EV, ET]) Deserialize(dr *codec.DecodingReader) error {
+	elemSize := tv.ElemType.TypeByteLength()
+	scope := dr.Scope()
+	length := scope / elemSize
+	if length > tv.ListLimit {
+		return fmt.Errorf("too many items, limit %d but got %d", tv.ListLimit, length)
+	}
+	if expected := length * elemSize; expected != scope {
+		return fmt.Errorf("scope %d does not align to elem size %d", scope, elemSize)
+	}
+	if length == 0 {
+		return tv.SetBacking(tv.DefaultNode())
+	}
+	contents := make([]byte, scope, scope)
+	if _, err := dr.Read(contents); err != nil {
+		return err
+	}
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return err
+	}
+	depth := CoverDepth(tv.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(length).Backing()}
+	return tv.SetBacking(rootNode)
+}
+
+func (tv *BasicListView[EV, ET]) SetElements(v ...EV) error {
+	length := uint64(len(v))
+	if length > tv.ListLimit {
+		return fmt.Errorf("expected no more than %d elements, got %d", tv.ListLimit, len(v))
+	}
+	bottomNodes, err := tv.ElemType.PackViews(v)
+	if err != nil {
+		return err
+	}
+	depth := CoverDepth(tv.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(v)).Backing()}
+	return tv.SetBacking(rootNode)
 }
 
 func (tv *BasicListView[EV, ET]) Append(view EV) error {
@@ -228,11 +207,7 @@ func (tv *BasicListView[EV, ET]) Pop() error {
 	}
 	// Pop the item by setting it to the default
 	// Update the view to the new tree containing this item.
-	defaultElement, err := tv.ElemType.BasicViewFromBacking(&ZeroHashes[0], subIndex)
-	if err != nil {
-		return err
-	}
-	bNode, err := setLast(defaultElement.BackingFromBase(r, subIndex))
+	bNode, err := setLast(tv.ElemType.New().(BasicView).BackingFromBase(r, subIndex))
 	if err != nil {
 		return err
 	}
@@ -277,16 +252,17 @@ func (tv *BasicListView[EV, ET]) subviewNode(i uint64) (r *Root, bottomIndex uin
 	return r, bottomIndex, subIndex, nil
 }
 
-func (tv *BasicListView[EV, ET]) Get(i uint64) (EV, error) {
-	var out EV
+func (tv *BasicListView[EV, ET]) Get(i uint64, dest MutBasicView) error {
 	if err := tv.CheckIndex(i); err != nil {
-		return out, err
+		return err
 	}
 	r, _, subIndex, err := tv.subviewNode(i)
 	if err != nil {
-		return out, err
+		return err
 	}
-	return tv.ElemType.BasicViewFromBacking(r, subIndex)
+	elSize := tv.ElemType.TypeByteLength()
+	offset := elSize * uint64(subIndex)
+	return dest.Decode(r[offset : offset+elSize])
 }
 
 func (tv *BasicListView[EV, ET]) Set(i uint64, v EV) error {

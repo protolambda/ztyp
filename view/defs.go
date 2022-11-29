@@ -5,17 +5,29 @@ import (
 	. "github.com/protolambda/ztyp/tree"
 )
 
+// Backing: immutable tree representing merkle-tree presentation of an SSZ value
+//
+// View: mutable interface around a backing, replaces the backing on mutation.
+// The new backing may use data-sharing to avoid deep copying
+//
+// TypeDef: defines the SSZ type structure, to create views and backings with.
+
 type View interface {
 	Backing() Node
-	SetBacking(b Node) error
 	ValueByteLength() (uint64, error)
 	Serialize(w *codec.EncodingWriter) error
 	HashTreeRoot(h HashFn) Root
 }
 
-type TypedView interface {
+type MutView interface {
 	View
-	Type() TypeDef[View]
+	SetBacking(b Node) error
+	Deserialize(dr *codec.DecodingReader) error
+}
+
+type HookedView interface {
+	MutView
+	SetHook(hook BackingHook)
 }
 
 type BackingHook func(b Node) error
@@ -28,17 +40,14 @@ func (vh BackingHook) PropagateChangeMaybe(b Node) error {
 	}
 }
 
-type TypeDef[V View] interface {
-	Default(hook BackingHook) V
-	Mask() TypeDef[View]
+type TypeDef interface {
 	DefaultNode() Node
-	ViewFromBacking(node Node, hook BackingHook) (V, error)
+	New() MutView
 	IsFixedByteLength() bool
 	// 0 if there type has no single fixed byte length
 	TypeByteLength() uint64
 	MinByteLength() uint64
 	MaxByteLength() uint64
-	Deserialize(dr *codec.DecodingReader) (V, error)
 	String() string
 	// TODO: could add navigation by key/index into subtypes
 }
@@ -48,8 +57,8 @@ type BasicView interface {
 	BackingFromBase(base *Root, i uint8) *Root
 }
 
-type BasicTypeDef[V BasicView] interface {
-	TypeDef[V]
-	BasicViewFromBacking(node *Root, i uint8) (V, error)
-	PackViews(views []V) ([]Node, error)
+type MutBasicView interface {
+	BasicView
+	MutView
+	Decode(x []byte) error
 }

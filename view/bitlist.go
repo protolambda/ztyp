@@ -3,6 +3,7 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
@@ -11,6 +12,8 @@ type BitListTypeDef struct {
 	BitLimit uint64
 	ComplexTypeBase
 }
+
+var _ TypeDef = (*BitListTypeDef)(nil)
 
 func BitListType(limit uint64) *BitListTypeDef {
 	return &BitListTypeDef{
@@ -24,24 +27,15 @@ func BitListType(limit uint64) *BitListTypeDef {
 	}
 }
 
-func (td *BitListTypeDef) Mask() TypeDef[View] {
-	return Mask[*BitListView, *BitListTypeDef]{td}
-}
-
-func (td *BitListTypeDef) FromBits(bits []bool) (*BitListView, error) {
-	if uint64(len(bits)) > td.BitLimit {
-		return nil, fmt.Errorf("got %d bits, expected no more than %d bits", len(bits), td.BitLimit)
-	}
-	contents := bitsToBytes(bits)
-	bottomNodes, err := BytesIntoNodes(contents)
-	if err != nil {
-		return nil, err
-	}
+func (td *BitListTypeDef) New() MutView {
 	depth := CoverDepth(td.BottomNodeLimit())
-	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
-	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(bits)).Backing()}
-	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view, nil
+	return &BitListView{
+		SubtreeView: SubtreeView{
+			BackedView: BackedView{},
+			depth:      depth + 1, // +1 for length mix-in
+		},
+		BitListTypeDef: td,
+	}
 }
 
 func (td *BitListTypeDef) Limit() uint64 {
@@ -53,75 +47,8 @@ func (td *BitListTypeDef) DefaultNode() Node {
 	return &PairNode{LeftChild: &ZeroHashes[depth], RightChild: &ZeroHashes[0]}
 }
 
-func (td *BitListTypeDef) ViewFromBacking(node Node, hook BackingHook) (*BitListView, error) {
-	depth := CoverDepth(td.BottomNodeLimit())
-	return &BitListView{
-		SubtreeView: SubtreeView{
-			BackedView: BackedView{
-				Hook:        hook,
-				BackingNode: node,
-			},
-			depth: depth + 1, // +1 for length mix-in
-		},
-		BitListTypeDef: td,
-	}, nil
-}
-
 func (td *BitListTypeDef) BottomNodeLimit() uint64 {
 	return (td.BitLimit + 0xff) >> 8
-}
-
-func (td *BitListTypeDef) Default(hook BackingHook) *BitListView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *BitListTypeDef) New() *BitListView {
-	return td.Default(nil)
-}
-
-func (td *BitListTypeDef) Deserialize(dr *codec.DecodingReader) (*BitListView, error) {
-	scope := dr.Scope()
-	if scope == 0 {
-		return nil, fmt.Errorf("expected at least a delimit bit, bitlist scope cannot be 0")
-	}
-	if scope > td.MaxSize {
-		return nil, fmt.Errorf("bitlist has too many bytes, bitlimit %d (byte size %d) but got scope %d", td.BitLimit, td.MaxSize, scope)
-	}
-	contents := make([]byte, scope, scope)
-	if _, err := dr.Read(contents); err != nil {
-		return nil, err
-	}
-	lastByte := contents[scope-1]
-	if lastByte == 0 {
-		return nil, fmt.Errorf("bitlist last byte must not be zero, delimit bit is missing")
-	}
-	if scope == 1 && lastByte == 1 {
-		// only a delimit bit, return empty bitlist
-		return td.New(), nil
-	}
-	delimitBitIndex := ByteBitIndex(lastByte)
-	bitLen := ((scope - 1) << 3) + delimitBitIndex
-	if bitLen > td.BitLimit {
-		return nil, fmt.Errorf("bitlist has too many bits set in last byte, got bit length %d, limit is %d", bitLen, td.BitLimit)
-	}
-	// Remove delimit bit
-	if delimitBitIndex == 0 {
-		// remove complete last byte, it only has a delimit bit
-		contents = contents[:scope-1]
-	} else {
-		// remove delimit bit from last byte, but leave other bits
-		contents[scope-1] = lastByte ^ (1 << delimitBitIndex)
-	}
-	bottomNodes, err := BytesIntoNodes(contents)
-	if err != nil {
-		return nil, err
-	}
-	depth := CoverDepth(td.BottomNodeLimit())
-	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
-	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(bitLen).Backing()}
-	view, _ := td.ViewFromBacking(rootNode, nil)
-	return view, nil
 }
 
 // Get index of left-most 1 bit.
@@ -151,19 +78,64 @@ type BitListView struct {
 	*BitListTypeDef
 }
 
-func AsBitList(v View, err error) (*BitListView, error) {
+var _ HookedView = (*BitListView)(nil)
+
+func (td *BitListView) SetBits(bits []bool) error {
+	if uint64(len(bits)) > td.BitLimit {
+		return fmt.Errorf("got %d bits, expected no more than %d bits", len(bits), td.BitLimit)
+	}
+	contents := bitsToBytes(bits)
+	bottomNodes, err := BytesIntoNodes(contents)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	bv, ok := v.(*BitListView)
-	if !ok {
-		return nil, fmt.Errorf("view is not a bitlist: %v", v)
-	}
-	return bv, nil
+	depth := CoverDepth(td.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(len(bits)).Backing()}
+	return td.SetBacking(rootNode)
 }
 
-func (tv *BitListView) Type() TypeDef[View] {
-	return tv.BitListTypeDef.Mask()
+func (td *BitListView) Deserialize(dr *codec.DecodingReader) error {
+	scope := dr.Scope()
+	if scope == 0 {
+		return fmt.Errorf("expected at least a delimit bit, bitlist scope cannot be 0")
+	}
+	if scope > td.MaxSize {
+		return fmt.Errorf("bitlist has too many bytes, bitlimit %d (byte size %d) but got scope %d", td.BitLimit, td.MaxSize, scope)
+	}
+	contents := make([]byte, scope, scope)
+	if _, err := dr.Read(contents); err != nil {
+		return err
+	}
+	lastByte := contents[scope-1]
+	if lastByte == 0 {
+		return fmt.Errorf("bitlist last byte must not be zero, delimit bit is missing")
+	}
+	if scope == 1 && lastByte == 1 {
+		// only a delimit bit, set to empty bitlist
+		return td.SetBacking(td.DefaultNode())
+	}
+	delimitBitIndex := ByteBitIndex(lastByte)
+	bitLen := ((scope - 1) << 3) + delimitBitIndex
+	if bitLen > td.BitLimit {
+		return fmt.Errorf("bitlist has too many bits set in last byte, got bit length %d, limit is %d", bitLen, td.BitLimit)
+	}
+	// Remove delimit bit
+	if delimitBitIndex == 0 {
+		// remove complete last byte, it only has a delimit bit
+		contents = contents[:scope-1]
+	} else {
+		// remove delimit bit from last byte, but leave other bits
+		contents[scope-1] = lastByte ^ (1 << delimitBitIndex)
+	}
+	bottomNodes, err := BytesIntoNodes(contents)
+	if err != nil {
+		return err
+	}
+	depth := CoverDepth(td.BottomNodeLimit())
+	contentsRootNode, _ := SubtreeFillToContents(bottomNodes, depth)
+	rootNode := &PairNode{LeftChild: contentsRootNode, RightChild: Uint64View(bitLen).Backing()}
+	return td.SetBacking(rootNode)
 }
 
 func (tv *BitListView) Append(view BoolView) error {

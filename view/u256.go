@@ -3,51 +3,26 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+	"math/big"
+	"strconv"
+
 	"github.com/holiman/uint256"
+
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
-	"math/big"
-	"strconv"
 )
 
 type Uint256Type struct{}
 
-var _ BasicTypeDef[Uint256View] = Uint256Type{}
-
-func (Uint256Type) Default(_ BackingHook) Uint256View {
-	return Uint256View{}
-}
+var _ PackingType[Uint256View] = Uint256Type{}
 
 func (Uint256Type) DefaultNode() Node {
 	return &ZeroHashes[0]
 }
 
-func (Uint256Type) New() Uint256View {
-	return Uint256View{}
-}
-
-func (td Uint256Type) Mask() TypeDef[View] {
-	return Mask[Uint256View, Uint256Type]{T: td}
-}
-
-func (Uint256Type) ViewFromBacking(node Node, _ BackingHook) (Uint256View, error) {
-	v, ok := node.(*Root)
-	if !ok {
-		return Uint256View{}, fmt.Errorf("node %T must be a root to read a uint256 from it", node)
-	}
-	var out Uint256View
-	out.setBytes32(v[:])
-	return out, nil
-}
-
-func (Uint256Type) BasicViewFromBacking(v *Root, i uint8) (Uint256View, error) {
-	if i != 0 {
-		return Uint256View{}, fmt.Errorf("cannot get uint256 at %d in 32 byte root", i)
-	}
-	var out Uint256View
-	out.setBytes32(v[:])
-	return out, nil
+func (Uint256Type) New() MutView {
+	return new(Uint256View)
 }
 
 func (Uint256Type) PackViews(views []Uint256View) ([]Node, error) {
@@ -87,25 +62,15 @@ func (td Uint256Type) String() string {
 
 type Uint256View uint256.Int
 
-var _ BasicView = Uint256View{}
+var _ BasicView = (*Uint256View)(nil)
 
-func AsUint256(v View, err error) (Uint256View, error) {
-	if err != nil {
-		return Uint256View{}, err
+func (v *Uint256View) SetBacking(b Node) error {
+	if r, ok := b.(*Root); ok {
+		v.setBytes32(r[:])
+		return nil
+	} else {
+		return BasicBackingRequiredErr
 	}
-	n, ok := v.(Uint256View)
-	if !ok {
-		return Uint256View{}, fmt.Errorf("not a uint256 view: %v", v)
-	}
-	return n, nil
-}
-
-func (v Uint256View) Type() TypeDef[View] {
-	return Uint256Type{}.Mask()
-}
-
-func (v Uint256View) SetBacking(b Node) error {
-	return BasicViewNoSetBackingError
 }
 
 // Bytes32 returns little endian encoding
@@ -141,7 +106,7 @@ func (v Uint256View) Backing() Node {
 	return &out
 }
 
-func (v Uint256View) BackingFromBase(base *Root, i uint8) *Root {
+func (v Uint256View) BackingFromBase(_ *Root, i uint8) *Root {
 	if i != 0 { // must always be aligned, we overwrite full 32 bytes here, nothing to pack along in same root.
 		return nil
 	}
@@ -150,7 +115,7 @@ func (v Uint256View) BackingFromBase(base *Root, i uint8) *Root {
 }
 
 func (v Uint256View) Copy() (View, error) {
-	return v, nil
+	return &v, nil
 }
 
 func (v Uint256View) ValueByteLength() (uint64, error) {
@@ -191,7 +156,7 @@ func (v *Uint256View) Decode(x []byte) error {
 	return nil
 }
 
-func (v Uint256View) HashTreeRoot(h HashFn) Root {
+func (v Uint256View) HashTreeRoot(HashFn) Root {
 	return v.Bytes32()
 }
 

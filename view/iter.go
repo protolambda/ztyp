@@ -2,13 +2,15 @@ package view
 
 import (
 	"fmt"
+
 	. "github.com/protolambda/ztyp/tree"
 )
 
-func basicElemReadonlyIter[EV BasicView, ET BasicTypeDef[EV]](anchor Node, length uint64, depth uint8, elemType ET) ElemIter[EV, ET] {
+func basicElemReadonlyIter[EV MutBasicView, ET TypeDef](anchor Node, length uint64, depth uint8, elemType ET) ElemIter[EV, ET] {
 	i := uint64(0)
 	// max 32 elements per bottom nodes, uint8 is safe.
-	perNode := 32 / uint8(elemType.TypeByteLength())
+	elSize := elemType.TypeByteLength()
+	perNode := 32 / uint8(elSize)
 	j := perNode
 
 	if limit := (uint64(1) << depth) * uint64(perNode); limit < length {
@@ -18,22 +20,23 @@ func basicElemReadonlyIter[EV BasicView, ET BasicTypeDef[EV]](anchor Node, lengt
 	stack := make([]Node, depth, depth)
 	var currentRoot *Root
 	rootIndex := uint64(0)
-	return ElemIterFn[EV, ET](func() (elem EV, typ ET, ok bool, err error) {
+	return ElemIterFn[EV, ET](func(elem EV) (typ ET, ok bool, err error) {
 		// done yet?
 		if i >= length {
 			return
 		}
 		// in the middle of a node currently? finish that first
 		if j < perNode {
-			elem, err = elemType.BasicViewFromBacking(currentRoot, j)
+			offset := uint64(j) * elSize
+			err = elem.Decode(currentRoot[offset : offset+elSize])
 			if err != nil {
 				return
 			}
-			// progress how many nodes we have seen so far in this bottom chunk
+			// progress how many elements we have seen so far in this bottom node
 			j += 1
 			// progress the general element counter,
 			i += 1
-			return elem, elemType, true, nil
+			return elemType, true, nil
 		}
 		var node Node
 		stackIndex := uint8(0)
@@ -77,8 +80,7 @@ func basicElemReadonlyIter[EV BasicView, ET BasicTypeDef[EV]](anchor Node, lengt
 		currentRoot = r
 
 		// get the first subview
-		elem, err = elemType.BasicViewFromBacking(currentRoot, 0)
-		if err != nil {
+		if err := elem.Decode(currentRoot[:elSize]); err != nil {
 			return
 		}
 		// indicate that we have done one subview, and may need more to be read. Next one would be index 1, if any.
@@ -89,7 +91,7 @@ func basicElemReadonlyIter[EV BasicView, ET BasicTypeDef[EV]](anchor Node, lengt
 		i += 1
 
 		// Return the actual element
-		return elem, elemType, true, nil
+		return elemType, true, nil
 	})
 }
 

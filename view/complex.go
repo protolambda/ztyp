@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
@@ -70,16 +71,16 @@ func (e ErrElemIter[EV, ET]) Next() (elem EV, elemTyp ET, ok bool, err error) {
 	return
 }
 
-type ElemIterFn[EV View, ET TypeDef[EV]] func() (elem EV, elemTyp ET, ok bool, err error)
+type ElemIterFn[EV View, ET TypeDef] func(elem EV) (elemTyp ET, ok bool, err error)
 
-func (f ElemIterFn[EV, ET]) Next() (elem EV, elemTyp ET, ok bool, err error) {
-	return (func() (elem EV, elemTyp ET, ok bool, err error))(f)()
+func (f ElemIterFn[EV, ET]) Next(elem EV) (elemTyp ET, ok bool, err error) {
+	return (func(elem EV) (elemTyp ET, ok bool, err error))(f)(elem)
 }
 
-type ElemIter[EV View, ET TypeDef[EV]] interface {
+type ElemIter[EV MutView, ET TypeDef] interface {
 	// Next gets the next element, ok is true if it actually exists.
 	// An error may occur if data is missing or corrupt.
-	Next() (elem EV, elemTyp ET, ok bool, err error)
+	Next(elem EV) (elemTyp ET, ok bool, err error)
 }
 
 func serializeComplexFixElemSeries[EV View, ET TypeDef[EV]](iter ElemIter[EV, ET], w *codec.EncodingWriter) error {

@@ -3,6 +3,7 @@ package view
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	. "github.com/protolambda/ztyp/tree"
 )
@@ -10,12 +11,12 @@ import (
 type UnionTypeDef struct {
 	ComplexTypeBase
 	// a "None" option is just a nil.
-	Options []TypeDef[View]
+	Options []TypeDef
 }
 
-var _ TypeDef[*UnionView] = (*UnionTypeDef)(nil)
+var _ TypeDef = (*UnionTypeDef)(nil)
 
-func UnionType(options []TypeDef[View]) *UnionTypeDef {
+func UnionType(options []TypeDef) *UnionTypeDef {
 	if len(options) == 0 {
 		panic("union requires at least 1 option")
 	}
@@ -51,71 +52,25 @@ func UnionType(options []TypeDef[View]) *UnionTypeDef {
 	}
 }
 
-func (td *UnionTypeDef) Mask() TypeDef[View] {
-	return Mask[*UnionView, *UnionTypeDef]{T: td}
-}
-
-func (td *UnionTypeDef) FromView(selector uint8, v View) (*UnionView, error) {
-	var selectorNode Root
-	selectorNode[0] = selector
-	var content Node
-	if v == nil {
-		content = new(Root)
-	} else {
-		content = v.Backing()
-	}
-	rootNode := NewPairNode(content, &selectorNode)
-	conView, err := td.ViewFromBacking(rootNode, nil)
-	if err != nil {
-		return nil, err
-	}
-	return conView, nil
-}
-
 func (td *UnionTypeDef) DefaultNode() Node {
 	return NewPairNode(td.Options[0].DefaultNode(), new(Root))
 }
 
-func (td *UnionTypeDef) ViewFromBacking(node Node, hook BackingHook) (*UnionView, error) {
+func (td *UnionTypeDef) New() MutView {
+	return &UnionView{
+		BackedView:   BackedView{},
+		UnionTypeDef: td,
+	}
+}
+
+func (td *UnionTypeDef) ViewFromBacking(node Node, hook BackingHook) *UnionView {
 	return &UnionView{
 		BackedView: BackedView{
 			Hook:        hook,
 			BackingNode: node,
 		},
 		UnionTypeDef: td,
-	}, nil
-}
-
-func (td *UnionTypeDef) Default(hook BackingHook) *UnionView {
-	v, _ := td.ViewFromBacking(td.DefaultNode(), hook)
-	return v
-}
-
-func (td *UnionTypeDef) New() *UnionView {
-	return td.Default(nil)
-}
-
-func (td *UnionTypeDef) Deserialize(dr *codec.DecodingReader) (*UnionView, error) {
-	scope := dr.Scope()
-	if scope == 0 {
-		return nil, fmt.Errorf("scope must be non-zero to deserialize union")
 	}
-	selector, err := dr.ReadByte()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read selector: %v", err)
-	}
-	if selector >= uint8(len(td.Options)) {
-		return nil, fmt.Errorf("type selector is too large: %d (%d options)", selector, len(td.Options))
-	}
-	option := td.Options[selector]
-	if option == nil {
-		return td.FromView(selector, nil)
-	}
-	subView, err := option.Deserialize(dr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode union element (selector %d, scope %d): %v", selector, scope, err)
-	}
-	return td.FromView(selector, subView)
 }
 
 func (td *UnionTypeDef) String() string {
@@ -139,21 +94,6 @@ type UnionView struct {
 }
 
 var _ View = (*UnionView)(nil)
-
-func AsUnion(v View, err error) (*UnionView, error) {
-	if err != nil {
-		return nil, err
-	}
-	c, ok := v.(*UnionView)
-	if !ok {
-		return nil, fmt.Errorf("view is not a union: %v", v)
-	}
-	return c, nil
-}
-
-func (v *UnionView) Type() TypeDef[View] {
-	return v.UnionTypeDef.Mask()
-}
 
 func (tv *UnionView) Copy() *UnionView {
 	tvCopy := *tv
@@ -195,7 +135,11 @@ func (tv *UnionView) Value() (View, error) {
 	if option == nil {
 		return nil, nil
 	}
-	return option.ViewFromBacking(content, nil)
+	v := option.New()
+	if err := v.SetBacking(content); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 func (tv *UnionView) ValueByteLength() (uint64, error) {
@@ -209,6 +153,29 @@ func (tv *UnionView) ValueByteLength() (uint64, error) {
 	contentSize, err := contentView.ValueByteLength()
 	// add 1 for the selector byte
 	return contentSize + 1, err
+}
+
+func (td *UnionView) Deserialize(dr *codec.DecodingReader) error {
+	scope := dr.Scope()
+	if scope == 0 {
+		return fmt.Errorf("scope must be non-zero to deserialize union")
+	}
+	selector, err := dr.ReadByte()
+	if err != nil {
+		return fmt.Errorf("failed to read selector: %v", err)
+	}
+	if selector >= uint8(len(td.Options)) {
+		return fmt.Errorf("type selector is too large: %d (%d options)", selector, len(td.Options))
+	}
+	option := td.Options[selector]
+	if option == nil {
+		return td.Change(selector, nil)
+	}
+	subView := option.New()
+	if err := subView.Deserialize(dr); err != nil {
+		return fmt.Errorf("failed to decode union element (selector %d, scope %d): %v", selector, scope, err)
+	}
+	return td.Change(selector, subView)
 }
 
 func (tv *UnionView) Serialize(w *codec.EncodingWriter) error {
@@ -227,8 +194,8 @@ func (tv *UnionView) Serialize(w *codec.EncodingWriter) error {
 	if option == nil {
 		return nil
 	}
-	v, err := option.ViewFromBacking(content, nil)
-	if err != nil {
+	v := option.New()
+	if err := v.SetBacking(content); err != nil {
 		return fmt.Errorf("invalid value content node: %v", err)
 	}
 	return v.Serialize(w)

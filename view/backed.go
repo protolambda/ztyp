@@ -19,3 +19,7 @@ func (v *BackedView) SetBacking(b Node) error {
 	v.BackingNode = b
 	return v.Hook.PropagateChangeMaybe(b)
 }
+
+func (v *BackedView) SetHook(h BackingHook) {
+	v.Hook = h
+}
