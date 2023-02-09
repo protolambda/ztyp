@@ -256,7 +256,7 @@ func (dr *DecodingReader) List(add func() Deserializable, fixedElemSize uint64, 
 				return err
 			}
 			if err := item.Deserialize(sub); err != nil {
-				return fmt.Errorf("failed to serialize item %d: %v", i, err)
+				return fmt.Errorf("failed to deserialize item %d: %v", i, err)
 			}
 			prev = off
 		}
