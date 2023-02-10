@@ -303,11 +303,10 @@ func (dr *DecodingReader) ByteVector(dst *[]byte, byteLength uint64) error {
 		return fmt.Errorf("byte vector destination is nil")
 	}
 	// grow the destination if necessary
-	byteLen := (byteLength + 7) >> 3
-	if uint64(cap(*dst)) < byteLen {
-		*dst = make([]byte, byteLen, byteLen)
+	if uint64(cap(*dst)) < byteLength {
+		*dst = make([]byte, byteLength, byteLength)
 	} else {
-		*dst = (*dst)[:byteLen]
+		*dst = (*dst)[:byteLength]
 	}
 	_, err := dr.Read(*dst)
 	return err
