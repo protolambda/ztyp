@@ -77,11 +77,7 @@ func (v Gindex64) Sibling() Gindex {
 	if v <= 1 {
 		panic("cannot get sibling of root")
 	}
-	if v%2 == 0 {
-		return v + 1
-	} else {
-		return v - 1
-	}
+	return v ^ 1
 }
 
 func (v Gindex64) Parent() Gindex {
