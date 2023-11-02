@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/protolambda/ztyp/bitfields"
 )
 
@@ -36,31 +37,66 @@ func (h HashFn) HashTreeRoot(fields ...HTR) Root {
 	}
 }
 
-func (h HashFn) ComplexVectorHTR(series SeriesHTR, length uint64) Root {
-	// length is alos limit for vectors
-	return Merkleize(h, length, length, func(i uint64) Root {
+func (h HashFn) HashTreeProof(index uint64, fields ...HTR) []Root {
+	n := uint64(len(fields))
+	switch n {
+	case 0:
+		return []Root{}
+	case 1:
+		return []Root{fields[0].HashTreeRoot(h)}
+	case 2:
+		h1 := fields[0].HashTreeRoot(h)
+		h2 := fields[1].HashTreeRoot(h)
+		h0 := h(h1, h2)
+		if index == 0 {
+			return []Root{h0, h2}
+		}
+		return []Root{h0, h1}
+	default:
+		return MerkleProof(h, uint64(len(fields)), uint64(len(fields)), index, func(i uint64) Root {
+			return fields[i].HashTreeRoot(h)
+		})
+	}
+}
+
+func (h HashFn) SeriesRootFunc(series SeriesHTR) func(i uint64) Root {
+	return func(i uint64) Root {
 		htr := series(i)
 		if htr == nil { // missing element? Fine, just like an empty node then
 			return Root{}
 		}
 		return htr.HashTreeRoot(h)
-	})
+	}
+}
+
+func (h HashFn) ComplexVectorHTR(series SeriesHTR, length uint64) Root {
+	// length is alos limit for vectors
+	return Merkleize(h, length, length, h.SeriesRootFunc(series))
+}
+
+func (h HashFn) ComplexVectorHTP(series SeriesHTR, length uint64, index uint64) []Root {
+	// length is alos limit for vectors
+	return MerkleProof(h, length, length, index, h.SeriesRootFunc(series))
 }
 
 func (h HashFn) ComplexListHTR(series SeriesHTR, length uint64, limit uint64) Root {
-	return h.Mixin(Merkleize(h, length, limit, func(i uint64) Root {
-		htr := series(i)
-		if htr == nil { // missing element? Fine, just like an empty node then
-			return Root{}
-		}
-		return htr.HashTreeRoot(h)
-	}), length)
+	return h.Mixin(Merkleize(h, length, limit, h.SeriesRootFunc(series)), length)
+}
+
+func (h HashFn) ComplexListHTP(series SeriesHTR, length uint64, limit uint64, index uint64) []Root {
+	return h.ProofMixin(MerkleProof(h, length, limit, index, h.SeriesRootFunc(series)), length)
 }
 
 func (h HashFn) Mixin(v Root, length uint64) Root {
 	var mixin Root
 	binary.LittleEndian.PutUint64(mixin[:], length)
 	return h(v, mixin)
+}
+
+func (h HashFn) ProofMixin(p []Root, length uint64) []Root {
+	var mixin Root
+	binary.LittleEndian.PutUint64(mixin[:], length)
+	return append([]Root{h(p[0], mixin), mixin}, p[1:]...)
 }
 
 // ChunksHTR is like SeriesHTR, except that the items are chunked by the input,

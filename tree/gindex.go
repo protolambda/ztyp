@@ -14,6 +14,8 @@ type Gindex interface {
 	Left() Gindex
 	// Right child gindex
 	Right() Gindex
+	// Sibling gindex
+	Sibling() Gindex
 	// Parent gindex
 	Parent() Gindex
 	// If the gindex points into the left subtree (2nd bit is 0)
@@ -22,6 +24,8 @@ type Gindex interface {
 	IsRoot() bool
 	// If gindex is 2 or 3
 	IsClose() bool
+	// If the v is in the proof path of g
+	IsProof(g Gindex) bool
 	// Get the depth of the gindex
 	Depth() uint32
 	// Iterate over the bits of the gindex
@@ -69,6 +73,17 @@ func (v Gindex64) Right() Gindex {
 	return v<<1 | 1
 }
 
+func (v Gindex64) Sibling() Gindex {
+	if v <= 1 {
+		panic("cannot get sibling of root")
+	}
+	if v%2 == 0 {
+		return v + 1
+	} else {
+		return v - 1
+	}
+}
+
 func (v Gindex64) Parent() Gindex {
 	return v >> 1
 }
@@ -84,6 +99,27 @@ func (v Gindex64) IsRoot() bool {
 
 func (v Gindex64) IsClose() bool {
 	return v <= 3
+}
+
+func (v Gindex64) IsProof(g Gindex) bool {
+	if v.IsRoot() {
+		return true
+	}
+	if g.Depth() < v.Depth() {
+		panic("gindex depth is smaller than proof depth")
+	}
+	g64, ok := g.(Gindex64)
+	if !ok {
+		return false
+	}
+	if v.Depth() == g64.Depth() {
+		if v%2 == 0 {
+			return g64 == v+1
+		} else {
+			return g64 == v-1
+		}
+	}
+	return v.IsProof(g.Parent())
 }
 
 func (v Gindex64) Depth() uint32 {
