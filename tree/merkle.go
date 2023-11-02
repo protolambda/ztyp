@@ -64,7 +64,7 @@ func Merkleize(hasher HashFn, count uint64, limit uint64, leaf func(i uint64) Ro
 }
 
 // Compute the merkle proof of the given leaf index.
-func MerkleProof(hasher HashFn, count uint64, limit uint64, index uint64, leaf func(i uint64) Root) (out []Root) {
+func MerkleProof(hasher HashFn, count uint64, limit uint64, gIndexComplete Gindex, leaf func(i uint64) Root) (out []Root, err error) {
 	if count > limit {
 		// merkleizing list that is too large, over limit
 		count = limit
@@ -86,7 +86,7 @@ func MerkleProof(hasher HashFn, count uint64, limit uint64, index uint64, leaf f
 
 	out = make([]Root, limitDepth+1)
 
-	gIndex, err := ToGindex64(index, limitDepth)
+	gIndex, gIndexFollow := gIndexComplete.Split(uint32(limitDepth))
 	if err != nil {
 		panic(err)
 	}
@@ -154,6 +154,11 @@ func MerkleProof(hasher HashFn, count uint64, limit uint64, index uint64, leaf f
 	// complement with zero-hashes at each depth.
 	for j := depth; j < limitDepth; j++ {
 		tmp[j+1] = nodeMerge(tmp[j], newNode(ZeroHashes[j], tmp[j].Gindex.Sibling()))
+	}
+
+	if !gIndexFollow.IsRoot() {
+		// TODO: Recurse into the proof of the next index
+		panic("not implemented")
 	}
 
 	return

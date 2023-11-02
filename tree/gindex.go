@@ -28,6 +28,8 @@ type Gindex interface {
 	IsProof(g Gindex) bool
 	// Get the depth of the gindex
 	Depth() uint32
+	// Split the tree at the given depth
+	Split(depth uint32) (Gindex, Gindex)
 	// Iterate over the bits of the gindex
 	// The depth is excl. the "root" bit
 	BitIter() (iter GindexBitIter, depth uint32)
@@ -108,18 +110,27 @@ func (v Gindex64) IsProof(g Gindex) bool {
 	if !ok {
 		return false
 	}
-	if v.Depth() == g64.Depth() {
-		if v%2 == 0 {
-			return g64 == v+1
-		} else {
-			return g64 == v-1
+	for g64 > 1 {
+		if v == (g64 ^ 1) {
+			return true
 		}
+		g64 >>= 1
 	}
-	return v.IsProof(g.Parent())
+	return false
 }
 
 func (v Gindex64) Depth() uint32 {
 	return uint32(BitIndex(uint64(v)))
+}
+
+func (v Gindex64) Split(depth uint32) (Gindex, Gindex) {
+	currentDepth := uint32(BitIndex(uint64(v)))
+	if depth > currentDepth {
+		panic("cannot split deeper than current depth")
+	}
+	depthDiff := currentDepth - depth
+	anchor := Gindex64(1 << depthDiff)
+	return v >> depthDiff, v&(anchor-1) | anchor
 }
 
 func (v Gindex64) BitIter() (iter GindexBitIter, depth uint32) {

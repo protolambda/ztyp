@@ -99,3 +99,29 @@ func TestGindex64Proof(t *testing.T) {
 		}
 	}
 }
+
+func TestGindex64Split(t *testing.T) {
+	cases := []struct {
+		gindex          Gindex64
+		depth           uint32
+		expectedGindex1 Gindex64
+		expectedGindex2 Gindex64
+	}{
+		{221184, 0, 1, 221184},
+		{221184, 4, 27, 8192},
+		{212992, 4, 26, 8192},
+		{221183, 4, 26, 16383},
+		{27, 4, 27, 1},
+	}
+	for _, c := range cases {
+		t.Run("", func(t *testing.T) {
+			idx1, idx2 := c.gindex.Split(c.depth)
+			if idx1 != c.expectedGindex1 {
+				t.Errorf("got %d, expected %d", idx1, c.expectedGindex1)
+			}
+			if idx2 != c.expectedGindex2 {
+				t.Errorf("got %d, expected %d", idx2, c.expectedGindex2)
+			}
+		})
+	}
+}

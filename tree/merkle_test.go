@@ -16,7 +16,7 @@ func TestMerkleProof(t *testing.T) {
 	tests := []struct {
 		count    uint64
 		limit    uint64
-		index    uint64
+		index    Gindex64
 		expected []string
 	}{
 		{8, 8, 0, []string{
@@ -82,7 +82,10 @@ func TestMerkleProof(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
-			got := MerkleProof(Hash, test.count, test.limit, test.index, leaf)
+			got, err := MerkleProof(Hash, test.count, test.limit, test.index, leaf)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if len(got) != len(test.expected) {
 				t.Fatalf("got %d items, expected %d", len(got), len(test.expected))
 			}
