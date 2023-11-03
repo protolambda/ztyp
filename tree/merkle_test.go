@@ -13,10 +13,13 @@ func TestMerkleProof(t *testing.T) {
 		binary.BigEndian.PutUint64(out[24:], i+1)
 		return out
 	}
+	proofs := func(i uint64, gIndex Gindex) []Root {
+		return nil
+	}
 	tests := []struct {
 		count    uint64
 		limit    uint64
-		index    Gindex64
+		index    uint64
 		expected []string
 	}{
 		{8, 8, 0, []string{
@@ -82,10 +85,11 @@ func TestMerkleProof(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
-			got, err := MerkleProof(Hash, test.count, test.limit, test.index, leaf)
+			gindex, err := ToGindex64(test.index, CoverDepth(test.limit))
 			if err != nil {
 				t.Fatal(err)
 			}
+			got := MerkleProof(Hash, test.count, test.limit, gindex, leaf, proofs)
 			if len(got) != len(test.expected) {
 				t.Fatalf("got %d items, expected %d", len(got), len(test.expected))
 			}

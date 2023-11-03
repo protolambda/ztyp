@@ -64,7 +64,7 @@ func Merkleize(hasher HashFn, count uint64, limit uint64, leaf func(i uint64) Ro
 }
 
 // Compute the merkle proof of the given leaf index.
-func MerkleProof(hasher HashFn, count uint64, limit uint64, gIndexComplete Gindex, leaf func(i uint64) Root) (out []Root, err error) {
+func MerkleProof(hasher HashFn, count uint64, limit uint64, gIndexComplete Gindex, leaf func(i uint64) Root, proofs func(i uint64, gIndex Gindex) []Root) (out []Root) {
 	if count > limit {
 		// merkleizing list that is too large, over limit
 		count = limit
@@ -87,9 +87,6 @@ func MerkleProof(hasher HashFn, count uint64, limit uint64, gIndexComplete Ginde
 	out = make([]Root, limitDepth+1)
 
 	gIndex, gIndexFollow := gIndexComplete.Split(uint32(limitDepth))
-	if err != nil {
-		panic(err)
-	}
 
 	type node struct {
 		Root
@@ -98,7 +95,7 @@ func MerkleProof(hasher HashFn, count uint64, limit uint64, gIndexComplete Ginde
 	newNode := func(r Root, g Gindex) *node {
 		// Save the proof if necessary
 		if g.IsProof(gIndex) {
-			out[g.Depth()] = r
+			out[uint32(limitDepth)-g.Depth()] = r
 		}
 		return &node{r, g}
 	}
@@ -157,8 +154,9 @@ func MerkleProof(hasher HashFn, count uint64, limit uint64, gIndexComplete Ginde
 	}
 
 	if !gIndexFollow.IsRoot() {
-		// TODO: Recurse into the proof of the next index
-		panic("not implemented")
+		if childRoots := proofs(gIndex.BaseIndex(), gIndexFollow); len(childRoots) > 0 {
+			out = append(childRoots[:len(childRoots)-1], out[:len(out)-1]...)
+		}
 	}
 
 	return

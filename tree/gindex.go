@@ -10,6 +10,8 @@ type Gindex interface {
 	Subtree() Gindex
 	// Anchor of the gindex: same depth, but with position zeroed out.
 	Anchor() Gindex
+	// Index of the element at the base of the tree
+	BaseIndex() uint64
 	// Left child gindex
 	Left() Gindex
 	// Right child gindex
@@ -65,6 +67,11 @@ func (v Gindex64) Subtree() Gindex {
 
 func (v Gindex64) Anchor() Gindex {
 	return Gindex64(1 << BitIndex(uint64(v)))
+}
+
+func (v Gindex64) BaseIndex() uint64 {
+	anchor := Gindex64(1 << BitIndex(uint64(v)))
+	return uint64(v ^ anchor)
 }
 
 func (v Gindex64) Left() Gindex {
