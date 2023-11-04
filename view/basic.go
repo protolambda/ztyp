@@ -822,6 +822,10 @@ func (v BoolView) HashTreeRoot(h HashFn) Root {
 	return newRoot
 }
 
+func (v BoolView) HashTreeProof(h HashFn, index Gindex) []Root {
+	return nil
+}
+
 func (v BoolView) Type() TypeDef {
 	return BoolType
 }
