@@ -52,28 +52,6 @@ func (h HashFn) HashTreeProof(index Gindex, fields ...HTP) []Root {
 	})
 }
 
-type rootProof struct {
-	Root *Root
-}
-
-func (r rootProof) HashTreeRoot(_ HashFn) Root {
-	if r.Root == nil {
-		return Root{}
-	}
-	return *r.Root
-}
-
-func (r rootProof) HashTreeProof(_ HashFn, _ Gindex) []Root {
-	return nil
-}
-
-func RootProof(root *Root) HTP {
-	if root == nil {
-		root = &Root{}
-	}
-	return rootProof{root}
-}
-
 func NilProofFunc(_ uint64, _ Gindex) []Root {
 	// Used for structures that we cannot recurse into, like a list of bytes.
 	return nil

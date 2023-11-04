@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/conv"
 )
@@ -44,6 +45,11 @@ func (Root) ValueByteLength() (uint64, error) {
 
 func (r Root) HashTreeRoot(_ HashFn) Root {
 	return r
+}
+
+func (r Root) HashTreeProof(_ HashFn, index Gindex) []Root {
+	// We can't descend into the root
+	return nil
 }
 
 func (r *Root) UnmarshalText(text []byte) error {
