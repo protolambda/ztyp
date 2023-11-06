@@ -10,20 +10,30 @@ type Gindex interface {
 	Subtree() Gindex
 	// Anchor of the gindex: same depth, but with position zeroed out.
 	Anchor() Gindex
+	// Index of the element at the base of the tree
+	BaseIndex() uint64
 	// Left child gindex
 	Left() Gindex
 	// Right child gindex
 	Right() Gindex
+	// Sibling gindex
+	Sibling() Gindex
 	// Parent gindex
 	Parent() Gindex
 	// If the gindex points into the left subtree (2nd bit is 0)
 	IsLeft() bool
+	// If the gindex points to a leaf that is the left child of its parent (Last bit is 0)
+	IsLeftLeaf() bool
 	// If the gindex is the root (= 1)
 	IsRoot() bool
 	// If gindex is 2 or 3
 	IsClose() bool
+	// If the v is in the proof path of g
+	IsProof(g Gindex) bool
 	// Get the depth of the gindex
 	Depth() uint32
+	// Split the tree at the given depth
+	Split(depth uint32) (Gindex, Gindex)
 	// Iterate over the bits of the gindex
 	// The depth is excl. the "root" bit
 	BitIter() (iter GindexBitIter, depth uint32)
@@ -61,12 +71,24 @@ func (v Gindex64) Anchor() Gindex {
 	return Gindex64(1 << BitIndex(uint64(v)))
 }
 
+func (v Gindex64) BaseIndex() uint64 {
+	anchor := Gindex64(1 << BitIndex(uint64(v)))
+	return uint64(v ^ anchor)
+}
+
 func (v Gindex64) Left() Gindex {
 	return v << 1
 }
 
 func (v Gindex64) Right() Gindex {
 	return v<<1 | 1
+}
+
+func (v Gindex64) Sibling() Gindex {
+	if v <= 1 {
+		panic("cannot get sibling of root")
+	}
+	return v ^ 1
 }
 
 func (v Gindex64) Parent() Gindex {
@@ -78,6 +100,10 @@ func (v Gindex64) IsLeft() bool {
 	return v&pivot == 0
 }
 
+func (v Gindex64) IsLeftLeaf() bool {
+	return v&1 == 0
+}
+
 func (v Gindex64) IsRoot() bool {
 	return v == 1
 }
@@ -86,8 +112,38 @@ func (v Gindex64) IsClose() bool {
 	return v <= 3
 }
 
+func (v Gindex64) IsProof(g Gindex) bool {
+	if v.IsRoot() {
+		return true
+	}
+	if g.Depth() < v.Depth() {
+		panic("gindex depth is smaller than proof depth")
+	}
+	g64, ok := g.(Gindex64)
+	if !ok {
+		return false
+	}
+	for g64 > 1 {
+		if v == (g64 ^ 1) {
+			return true
+		}
+		g64 >>= 1
+	}
+	return false
+}
+
 func (v Gindex64) Depth() uint32 {
 	return uint32(BitIndex(uint64(v)))
+}
+
+func (v Gindex64) Split(depth uint32) (Gindex, Gindex) {
+	currentDepth := uint32(BitIndex(uint64(v)))
+	if depth > currentDepth {
+		panic("cannot split deeper than current depth")
+	}
+	depthDiff := currentDepth - depth
+	anchor := Gindex64(1 << depthDiff)
+	return v >> depthDiff, v&(anchor-1) | anchor
 }
 
 func (v Gindex64) BitIter() (iter GindexBitIter, depth uint32) {

@@ -4,10 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strconv"
+
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
-	"strconv"
 )
 
 // A uint type, identified by its size in bytes.
@@ -604,6 +605,10 @@ func (v Uint64View) HashTreeRoot(h HashFn) Root {
 	return newRoot
 }
 
+func (v Uint64View) HashTreeProof(h HashFn, _ Gindex) []Root {
+	return nil
+}
+
 func (v Uint64View) Type() TypeDef {
 	return Uint64Type
 }
@@ -815,6 +820,10 @@ func (v BoolView) HashTreeRoot(h HashFn) Root {
 	newRoot := Root{}
 	newRoot[0] = v.byte()
 	return newRoot
+}
+
+func (v BoolView) HashTreeProof(h HashFn, index Gindex) []Root {
+	return nil
 }
 
 func (v BoolView) Type() TypeDef {

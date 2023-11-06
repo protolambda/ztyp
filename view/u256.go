@@ -3,12 +3,13 @@ package view
 import (
 	"encoding/binary"
 	"fmt"
+	"math/big"
+	"strconv"
+
 	"github.com/holiman/uint256"
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/conv"
 	. "github.com/protolambda/ztyp/tree"
-	"math/big"
-	"strconv"
 )
 
 type Uint256View uint256.Int
@@ -113,6 +114,10 @@ func (v *Uint256View) Decode(x []byte) error {
 
 func (v Uint256View) HashTreeRoot(h HashFn) Root {
 	return v.Bytes32()
+}
+
+func (v Uint256View) HashTreeProof(h HashFn, index Gindex) []Root {
+	return nil
 }
 
 func (v Uint256View) Type() TypeDef {
