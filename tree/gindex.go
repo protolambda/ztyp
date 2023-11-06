@@ -22,6 +22,8 @@ type Gindex interface {
 	Parent() Gindex
 	// If the gindex points into the left subtree (2nd bit is 0)
 	IsLeft() bool
+	// If the gindex points to a leaf that is the left child of its parent (Last bit is 0)
+	IsLeftLeaf() bool
 	// If the gindex is the root (= 1)
 	IsRoot() bool
 	// If gindex is 2 or 3
@@ -96,6 +98,10 @@ func (v Gindex64) Parent() Gindex {
 func (v Gindex64) IsLeft() bool {
 	pivot := Gindex64(1<<BitIndex(uint64(v))) >> 1
 	return v&pivot == 0
+}
+
+func (v Gindex64) IsLeftLeaf() bool {
+	return v&1 == 0
 }
 
 func (v Gindex64) IsRoot() bool {
