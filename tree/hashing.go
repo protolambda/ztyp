@@ -53,7 +53,8 @@ func (h HashFn) HashTreeProof(index Gindex, fields ...HTP) []Root {
 }
 
 func NilProofFunc(_ uint64, _ Gindex) []Root {
-	// Used for structures that we cannot recurse into, like a list of bytes.
+	// Used for structures that we cannot recurse into one of its elements, like a list of bytes,
+	// where we can return the proof branch but we cannot recurse into the bytes.
 	return nil
 }
 
